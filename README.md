@@ -1,7 +1,31 @@
 ## 快速开始
 
-1. ORM: Object Relation Mapping，把对数据库的操作都封装到对象中，操作了对象，就相当于操作了数据库
-1. Schema：用于定义实体，mongoose 由 Schema 驱动
+Mongoose 是一款使用 Javascript 操作 MongoDB 的 ORM 框架（ORM: Object Relation Mapping，把对数据库的操作都封装到对象中，操作了对象，就相当于操作了数据库）。  
+
+首先，确保你安装了 MongoDB 和 NodeJs。
+然后在命令行中使用 npm 安装 Mongoose：
+
+```shell
+$ npm install mongoose --save
+
+```
+
+现在假设我们喜欢毛茸茸的小猫，并且想把每个遇到的小猫记录到 MongoDB 里。我们需要做的第一件事是将 mongoose 引入到我们的项目里，然后开启一个连接到本地运行的 MongoDB 实例上的 `test` 数据库。
+
+```javascript
+// getting-started.js
+const mongoose = require('mongoose');
+
+main().catch(err => console.log(err));
+
+async function main() {
+  await mongoose.connect('mongodb://localhost:27017/test');
+}
+```
+
+为简便起见，我们假定下面的代码都在 `main` 函数里。
+ 
+在 Mongoose 里, 一切都起源于 [Schema](#Schemas)。我们来查看一下然后定义我们的小猫。
 
 ```javascript
 const kittySchema = new mongoose.Schema({
@@ -9,34 +33,86 @@ const kittySchema = new mongoose.Schema({
 });
 ```
 
-3. Model: 用来构造 document 的类，Model 由 Schema 编译成
-
+目前为止一切正常。我们得到了一个拥有一个属性的 schema，name, 是一个字符串。下一步是将我们的 schema 编译成一个 Model。
 ```javascript
 const Kitten = mongoose.model('Kitten', kittySchema);
 ```
 
-4. document：mongodb 里的一条数据，使用 new Model() 生成
+model 是用来构造 document 的类。此例中，每个文档都是一个拥有我们声明的 schema 中属性和行为的小猫。让我们来创建一个文档来表示我们刚刚在外面人行道上遇到的小猫。
 
 ```javascript
-// 生成一条document
 const silence = new Kitten({ name: 'Silence' });
-// 保存document
-silence.save((err, silence) => {
-  if (err) return console.error(err);
-});
-// 查找document
-Kitten.find((err, kittens) => {
-  if (err) return console.error(err);
-  console.log(kittens);
-});
+console.log(silence.name); // 'Silence'
 ```
 
-总结：我的感觉是 schema 可以去掉，直接通过 `mongoose.model('Kitten', {name: String})` 更加方便，事实上，由 schema 转化为 model 调用的方法都一样，属于模板代码，没有自定义的逻辑。
-我这种想法也被其他库实现了，比如 typegoose，就是直接定义 model。
+小猫会喵喵叫，所以让我们来看看怎么添加 "speak" 方法到我们的文档上：
 
-## 教程
+```javascript
+// 提示: 方法必须要在被 mongoose.model() 编译之前添加到 schema 上
+kittySchema.methods.speak = function speak() {
+  const greeting = this.name
+    ? "Meow name is " + this.name
+    : "I don't have a name";
+  console.log(greeting);
+};
+
+const Kitten = mongoose.model('Kitten', kittySchema);
+```
+
+添加到 schema 的 methods 属性上的函数被编译到 Model 的原型，并被暴露在每个文档的实例上：
+
+```javascript
+const fluffy = new Kitten({ name: 'fluffy' });
+fluffy.speak(); // "Meow name is fluffy"
+```
+
+我们有了会说话的小猫！但是我们还没有保存任何东西到 MongoDB。每个文档可以调用自身的 save 方法来保存到数据库中。如果有任何错误发生，回调的第一个参数将是一个 error。
+
+```javascript
+await fluffy.save();
+fluffy.speak();
+```
+
+时光流逝，我们想展示遇到的所有小猫，那么我们可以通过 Kitten model 访问所有的小猫文档。
+
+```javascript
+const kittens = await Kitten.find();
+console.log(kittens);
+```
+
+我们刚在控制台打印了所有的小猫。如果我们想使用小猫的名字过滤，Mongoose 支持 MongoDB 的丰富的查询语法。
+
+```javascript
+await Kitten.find({ name: /^fluff/ });
+```
+
+这会查询名字以 "fluff" 开头的所有文档并且返回一个小猫的数组到回调中。
+
+##### 恭喜
+
+快速开始到此为止。我们使用 Mongoose 创建了一个 schema，添加了一个自定义方法，在 MongoDB 里保存和查询了小猫。去 [指南](#指南) 和 [API 文档](#api) 获取更多信息。
+
+
+
+## 指南
 
 ### Schemas
+
+- [定义你的 schema](#定义你的-schema)
+- [创建 Model](#创建-model)
+- [Ids](#ids)
+- [实例方法](#实例方法)
+- [静态方法](#静态方法)
+- [Query Helpers](#query-helpers)
+- [索引](#索引)
+- [Virtuals](#virtuals)
+- [别名](#别名)
+- [选项](#选项)
+- [使用 ES6 Classes](#arrays)
+- [插件化](#插件化)
+- [更多](#更多)
+
+#### 定义你的 schema
 
 Moongoose 的一切从 Schema 开始，每个 schema 映射到一个 MongoDB 的集合（表）并定义表中文档的形状。schema 中每个 key 都代表文档中的一个属性，并会转化为其定义的类型。
 schema 不仅可以定义文档的结构，还可以定义文档的**实例方法，静态 model 方法，索引和钩子函数（中间件）**。
@@ -46,7 +122,7 @@ import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
 const blogSchema = new Schema({
-  title: String, // String is shorthand for {type: String}
+  title: String, // String 是 {type: String} 的简写
   author: String,
   body: String,
   comments: [{ body: String, date: Date }],
@@ -62,7 +138,8 @@ const blogSchema = new Schema({
 如果后面想加新的字段，可以调用 `Schema#add` 方法。
 字段也可以设置成包含更深的 key/type 定义的嵌套对象，比如上面的 meta 字段。当字段的值为一个 `POJO` （普通 js 对象）时可以这么使用。
 
-#### 允许定义的类型
+
+允许定义的类型:
 
 - [String](https://mongoosejs.com/docs/schematypes.html#strings)
 - [Number](https://mongoosejs.com/docs/schematypes.html#numbers)
@@ -77,8 +154,12 @@ const blogSchema = new Schema({
 
 #### 创建 model
 
+为了使用 schema，我们需要将 blogSchema 转化为可以使用的 Model。为此，我们将它传递到 `mongoose.model(modelName, schema)` ：
+
+
 ```javascript
 const Blog = mongoose.model('Blog', blogSchema);
+// ready to go!
 ```
 
 #### Ids
@@ -90,7 +171,7 @@ const schema = new Schema({ _id: Number });
 const Model = mongoose.model('Test', schema);
 
 const doc = new Model();
-await doc.save(); // Throws "document must have an _id before saving"
+await doc.save(); // 抛出 "document must have an _id before saving" 的错误
 
 doc._id = 1;
 await doc.save(); // works
@@ -106,10 +187,10 @@ await doc.save(); // works
 下面是例子:
 
 ```javascript
-// define a schema
+// 定义一个 schema
 const animalSchema = new Schema({ name: String, type: String });
 
-// assign a function to the "methods" object of our animalSchema
+// 给 animalSchema 的 "methods" 对象赋值一个函数 
 animalSchema.methods.findSimilarTypes = function (cb) {
   return mongoose.model('Animal').find({ type: this.type }, cb);
 };
@@ -117,7 +198,7 @@ animalSchema.methods.findSimilarTypes = function (cb) {
 const Animal = mongoose.model('Animal', animalSchema);
 const dog = new Animal({ type: 'dog' });
 
-// 使用方法，就和使用find一样
+// 使用方法，就和使用 find 一样
 dog.findSimilarTypes((err, dogs) => {
   console.log(dogs); // woof
 });
@@ -128,11 +209,11 @@ dog.findSimilarTypes((err, dogs) => {
 你可以给 model 添加静态方法，通过 `schema.statics` 或者 `Schema#static` 函数。注意不能使用箭头函数因为无法使用 this 访问当前的 document。
 
 ```javascript
-// Assign a function to the "statics" object of our animalSchema
+// 给 animalSchema 的 "statics" 对象赋值一个函数 
 animalSchema.statics.findByName = function (name) {
   return this.find({ name: new RegExp(name, 'i') });
 };
-// Or, equivalently, you can call `animalSchema.static()`.
+// 或者，同样地, 你可以调用 `animalSchema.static()`
 animalSchema.static('findByBreed', function (breed) {
   return this.find({ breed });
 });
@@ -174,34 +255,33 @@ MongoDB 支持 [索引](https://docs.mongodb.com/manual/indexes/)，你可以在
 const animalSchema = new Schema({
   name: String,
   type: String,
-  tags: { type: [String], index: true } // field level
+  tags: { type: [String], index: true } // 字段级别
 });
 
-animalSchema.index({ name: 1, type: -1 }); // schema level
+animalSchema.index({ name: 1, type: -1 }); // schema 级别
 ```
 
 当应用启动，Mongoose 会自动为 schema 定义的每个 index 调用 createIndex 方法。Mongoose 会按顺序调用 createIndex 方法，当调用成功或失败都会触发一个 `index` 事件到 model。这个行为在开发阶段很好，但是在生产阶段会导致 [严重的性能问题](https://docs.mongodb.com/manual/core/index-creation/#index-build-impact-on-database-performance)，所以最好在生产阶段关闭这个行为。
 
 ```javascript
 mongoose.connect('mongodb://user:pass@localhost:port/database', { autoIndex: false });
-// or
+// 或
 mongoose.createConnection('mongodb://user:pass@localhost:port/database', { autoIndex: false });
-// or
+// 或
 animalSchema.set('autoIndex', false);
-// or
+// 或
 new Schema({..}, { autoIndex: false });
 ```
 
 Mongoose 会触发一个 `index` 事件到 model，你可以监听该事件。
 
 ```javascript
-// Will cause an error because mongodb has an _id index by default that
-// is not sparse
+// 会导致错误因为 mongodb 有一个 _id 索引默认不是稀疏的
 animalSchema.index({ _id: 1 }, { sparse: true });
 const Animal = mongoose.model('Animal', animalSchema);
 
 Animal.on('index', (error) => {
-  // "_id index cannot be sparse"
+  // "_id 索引不是稀疏的"
   console.log(error.message);
 });
 ```
@@ -210,7 +290,7 @@ Animal.on('index', (error) => {
 
 #### 别名
 
-#### Options
+#### 选项
 
 - [autoIndex](#p3NLC)
 - [autoCreate](#J0AYf)
@@ -306,7 +386,7 @@ const Thing = mongoose.model('Thing', schema);
 const thing = new Thing({ name: 'mongoose v3' });
 await thing.save(); // { __v: 0, name: 'mongoose v3' }
 
-// customized versionKey
+// 定制 versionKey
 new Schema({..}, { versionKey: '_somethingElse' })
 const Thing = mongoose.model('Thing', schema);
 const thing = new Thing({ name: 'mongoose v3' });
@@ -316,22 +396,20 @@ thing.save(); // { _somethingElse: 0, name: 'mongoose v3' }
 请注意 Mongoose 默认的版本控制不是一个完整的 [optimistic concurrency](https://en.wikipedia.org/wiki/Optimistic_concurrency_control) 方案，其版本控制只作用于数组，如下所示。如果你需要 optimistic concurrency 支持，你可以设置 optimisticConcurrency 选项。
 
 ```javascript
-// 2 copies of the same document
+// 同一个文档的 2 份拷贝
 const doc1 = await Model.findOne({ _id });
 const doc2 = await Model.findOne({ _id });
 
-// Delete first 3 comments from `doc1`
+// 从 `doc1` 删除 3 个评论
 doc1.comments.splice(0, 3);
 await doc1.save();
 
-// The below `save()` will throw a VersionError, because you're trying to
-// modify the comment at index 1, and the above `splice()` removed that
-// comment.
+// 下面的 `save()` 会抛出一个 VersionError，因为你试图修改索引为 1 的评论，而上面的 `splice()` 删掉了它
 doc2.set('comments.1.body', 'new comment');
 await doc2.save();
 ```
 
-你还可以设置 versionKey 为 false 禁用版本控制。_**不要**禁用版本控制除非 _[_你知道你在做什么_](http://aaronheckmann.blogspot.com/2012/06/mongoose-v3-part-1-versioning.html)。
+你还可以设置 versionKey 为 false 禁用版本控制。**不要**禁用版本控制除非 [_你知道你在做什么_](http://aaronheckmann.blogspot.com/2012/06/mongoose-v3-part-1-versioning.html)。
 
 ```javascript
 new Schema({..}, { versionKey: false });
@@ -376,6 +454,12 @@ schema.pre('findOneAndUpdate', function () {
 
 ##### storeSubdocValidationError
 
+#### 使用 ES6 Classes
+
+#### 插件化
+
+#### 更多
+
 ### SchemaTypes
 
 ### Connections
@@ -407,12 +491,12 @@ Note：model 方法会复制一份 schema。要确保在调用该方法前将所
 #### Change Streams
 
 
-## Documents
+### Documents
 
 Mongoose 的 document 一对一的对应着 MongoDB 存储的 document。每个 document 都是它对应 Model 的实例。
 ​
 
-### Documents vs Models
+#### Documents vs Models
 
 Documents 和 Models 在 Mongoose 里是不同的类。Model 是 Document 的子类，所以当你 new 一个 Model 的时候，实际上你创建了一个 document。
 
@@ -425,7 +509,7 @@ doc instanceof mongoose.Model; // true
 doc instanceof mongoose.Document; // true
 ```
 
-### 取回
+#### 取回
 
 当调用 Model 的静态方法比如 `findOne`，返回结果（要使用 await）是 document。
 
@@ -439,25 +523,25 @@ doc instanceof mongoose.Document; // true
 
 ​
 
-### 使用 save 方法更新
+#### 使用 save 方法更新
 
 Mongoose document 会跟踪变化。你可以通过普通赋值来修改 document 的属性，调用 save 方法后 Mongoose 会转化成 MongoDB 的 update 操作。
 
 ```javascript
 doc.name = 'foo';
 
-// Mongoose sends an `updateOne({ _id: doc._id }, { $set: { name: 'foo' } })` to MongoDB
+// Mongoose 会发送一个 `updateOne({ _id: doc._id }, { $set: { name: 'foo' } })` 到 MongoDB
 await doc.save();
 ```
 
 save 方法返回 promise，成功结果通过 resolve 方法接收，抛错通过 catch 来接收。
 
-### 使用 Queries 更新
+#### 使用 Queries 更新
 
 更新文档一般会使用 save 方法，使用 save，你可以获得完整的 validation 和 middleware。
 对于某些场景使用 save 不够灵活，所以 Mongoose 可以让你不执行 middleware 和使用有限的 validation 就可以完成文档的更新操作。
 
-### Validating
+#### Validating
 
 文档在**保存**之前会被转换和校验。Mongoose 首先会将值转化为定义的类型然后在校验它们。从内部看，Mongoose 会在**保存**之前调用 validate 方法。
 
@@ -466,45 +550,45 @@ const schema = new Schema({ name: String, age: { type: Number, min: 0 } });
 const Person = mongoose.model('Person', schema);
 
 let p = new Person({ name: 'foo', age: 'bar' });
-// Cast to Number failed for value "bar" at path "age"
+// 在字段上 "age" 将值 "bar" 转化为 Number 失败 
 await p.validate();
 
 let p2 = new Person({ name: 'foo', age: -1 });
-// Path `age` (-1) is less than minimum allowed value (0).
+// 字段 `age` (-1) 比允许的最小值(0) 要小
 await p2.validate();
 ```
 
 对于更新操作，默认是不进行校验的，但是你可以设置 `runValidators: true` 来让其进行校验。
 
 ```javascript
-// Cast to number failed for value "bar" at path "age"
+// 在字段上 "age" 将值 "bar" 转化为 Number 失败 
 await Person.updateOne({}, { age: 'bar' });
 
-// Path `age` (-1) is less than minimum allowed value (0).
+// 字段 `age` (-1) 比允许的最小值(0) 要小
 await Person.updateOne({}, { age: -1 }, { runValidators: true });
 ```
 
-### Overwriting
+#### Overwriting
 
-## Subdocuments
+### Subdocuments
 
-## Queries
+### Queries
 
 Mongoose 的 Models 提供了一些静态方法来做 CRUD 操作，每个方法都会返回一个 Query 对象。
 query 的执行有两种方式，，一个是传递回调函数，一个是调用 then 方法（有 then 方法，但其并不 是 promise 对象）。
 ​
 
-### Executing
+#### Executing
 
 传递回调函数的方式，可以传递一个对象。回调的范式和 NodeJs 一样，`callback(error, result)`
 
 ```javascript
 const Person = mongoose.model('Person', yourSchema);
 
-// find each person with a last name matching 'Ghost', selecting the `name` and `occupation` fields
+// 找到名字为 'Ghost' 的每个文档并选择 `name` 和 `occupation` 字段
 Person.findOne({ 'name.last': 'Ghost' }, 'name occupation', function (err, person) {
   if (err) return handleError(err);
-  // Prints "Space Ghost is a talk show host".
+  // 打印 "Space Ghost is a talk show host".
   console.log('%s %s is a %s.', person.name.first, person.name.last, person.occupation);
 });
 ```
@@ -521,7 +605,7 @@ const query = Person.findOne({ 'name.last': 'Ghost' })
   });
 ```
 
-### Queries 不是 Promises
+#### Queries 不是 Promises
 
 Queries 不是 promises，但是有 then 方法，所以可以使用 async/await 来获取结果。和 promises 不同的是，then 的每一次调用都会执行一次查询。
 混合使用 promise（使用 await 方法）和回调函数会导致 query 执行两次，下面的代码会插入两条 tag 到数组里。
@@ -535,23 +619,23 @@ const BlogPost = mongoose.model(
   })
 );
 
-// Because there's both `await` **and** a callback, this `updateOne()` executes twice
-// and thus pushes the same string into `tags` twice.
+// 因为同时存在 `await` **和** 回调函数, 这个 `updateOne()` 会执行 2 次
+// 因此会把相同的字符串 push 到 `tags` 2 次
 const update = { $push: { tags: ['javascript'] } };
 await BlogPost.updateOne({ title: 'Introduction to Promises' }, update, (err, res) => {
   console.log(res);
 });
 ```
 
-### References to other documents
+#### References to other documents
 
 MongoDB 里没有 join 操作，但是有 populate 方法可以达到类似效果。
 
-### Streaming
+#### Streaming
 
-### 对比 Aggregation
+#### 对比 Aggregation
 
-### Query Casting
+#### Query Casting
 
 第一个传递给 `Model.find(), Model.findOne(), Query#find()` 的参数被称为过滤器，或者叫查询条件。
 
@@ -559,35 +643,38 @@ MongoDB 里没有 join 操作，但是有 populate 方法可以达到类似效�
 const query = Character.find({ name: 'Jean-Luc Picard' });
 query.getFilter(); // `{ name: 'Jean-Luc Picard' }`
 
-// Subsequent chained calls merge new properties into the filter
+// 
+// 后续的链式调用会合并新的属性到过滤器
 query.find({ age: { $gt: 50 } });
 query.getFilter(); // `{ name: 'Jean-Luc Picard', age: { $gt: 50 } }`
 ```
 
-### Lean Option
+#### findOneAndUpdate()
+
+#### Lean Option
 
 lean option 会让 Mongoose 跳过 document 和返回结果的混合，可以使查询更快更节省内存，但是返回结果是 `plain ordinary JavaScript objects (POJOs)`，而非 Mongoose document。
-使用 lean 和不使用的区别
 
+使用 lean 和不使用的区别
 ```javascript
 const schema = new mongoose.Schema({ name: String });
 const MyModel = mongoose.model('Test', schema);
 
 await MyModel.create({ name: 'test' });
 
-// Module that estimates the size of an object in memory
+// 估计内存对象尺寸的模块
 const sizeof = require('object-sizeof');
 
 const normalDoc = await MyModel.findOne();
-// To enable the `lean` option for a query, use the `lean()` function.
+// 使用 `lean()` 函数在查询中开启 `lean` 选项
 const leanDoc = await MyModel.findOne().lean();
 
-sizeof(normalDoc); // approximately 600
-sizeof(leanDoc); // 36, more than 10x smaller!
+sizeof(normalDoc); // 约 600
+sizeof(leanDoc); // 36, 比原来小 10 倍多！
 
-// In case you were wondering, the JSON form of a Mongoose doc is the same
-// as the POJO. This additional memory only affects how much memory your
-// Node.js process uses, not how much data is sent over the network.
+
+// 假设你想知道的话，JSON 形式的 Mongoose 文档和 POJO 是一样的。
+// 额外的内存只会影响 Node.js 进程使用多少内存，而不是通过网络发送的数据大小
 JSON.stringify(normalDoc).length === JSON.stringify(leanDoc.length); // true
 ```
 
@@ -595,8 +682,7 @@ JSON.stringify(normalDoc).length === JSON.stringify(leanDoc.length); // true
 使用 lean：
 
 ```javascript
-// As long as you don't need any of the Person model's virtuals or getters,
-// you can use `lean()`.
+// 只要你不需要 Persion model 的任何虚拟字段或 getters，就可以使用 `lean()`
 app.get('/person/:id', function (req, res) {
   Person.findOne({ _id: req.params.id })
     .lean()
@@ -608,21 +694,24 @@ app.get('/person/:id', function (req, res) {
 不使用 lean：
 
 ```javascript
-// As long as you don't need any of the Person model's virtuals or getters,
-// you can use `lean()`.
-app.get('/person/:id', function (req, res) {
-  Person.findOne({ _id: req.params.id })
-    .lean()
-    .then((person) => res.json({ person }))
-    .catch((error) => res.json({ error: error.message }));
+// 这个路由 **不应该** 使用 `lean()`, 因为 lean 意味着不能使用 `save()`
+app.put('/person/:id', function(req, res) {
+  Person.findOne({ _id: req.params.id }).
+    then(person => {
+      assert.ok(person);
+      Object.assign(person, req.body);
+      return person.save();
+    }).
+    then(person => res.json({ person })).
+    catch(error => res.json({ error: error.message }));
 });
 ```
 
-## Validation
+### Validation
 
-## Middleware
+### Middleware
 
-## Populate
+### Populate
 
 MongoDB 从 v3.2 开始有了 join-like 的 [$lookup](https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/) 聚合操作。Mongoose 有个更强大的可替代的 `populate()` API，可以让你引用其他集合的文档。
 Population 是一个自动替换文档中某个特定字段为其他集合文档的过程。我们可以 populate 单个文档，多个文档，一个普通的对象，多个对象或从 query 返回的所有对象。看下面的例子。
@@ -651,24 +740,24 @@ const Person = mongoose.model('Person', personSchema);
 目前为止我们创建了两个 Model。Person Model 有一个 stories 字段被设置成 ObjectId 的数组，ref 选项告诉 Mongoose 在 population 过程中使用哪个 model，在我们的例子中是 Story 这个 model。所有保存的 \_id 都必须是 Story model 创建的文档的 \_id。
 请注意：ObjectId，Number，String 和 Buffer 都可以作为 refs。但是，你应该首选 ObjectId，除非你是高阶使用者并且你有足够的理由这么做。
 
-- [Saving Refs](https://mongoosejs.com/docs/populate.html#saving-refs)
-- [Population](https://mongoosejs.com/docs/populate.html#population)
-- [Checking Whether a Field is Populated](https://mongoosejs.com/docs/populate.html#checking-populated)
-- [Setting Populated Fields](https://mongoosejs.com/docs/populate.html#setting-populated-fields)
-- [What If There's No Foreign Document?](https://mongoosejs.com/docs/populate.html#doc-not-found)
-- [Field Selection](https://mongoosejs.com/docs/populate.html#field-selection)
-- [Populating Multiple Paths](https://mongoosejs.com/docs/populate.html#populating-multiple-paths)
-- [Query conditions and other options](https://mongoosejs.com/docs/populate.html#query-conditions)
-- [Refs to children](https://mongoosejs.com/docs/populate.html#refs-to-children)
-- [Populating an existing document](https://mongoosejs.com/docs/populate.html#populate_an_existing_mongoose_document)
-- [Populating multiple existing documents](https://mongoosejs.com/docs/populate.html#populate_multiple_documents)
-- [Populating across multiple levels](https://mongoosejs.com/docs/populate.html#deep-populate)
-- [Populating across Databases](https://mongoosejs.com/docs/populate.html#cross-db-populate)
-- [Dynamic References via `refPath`](https://mongoosejs.com/docs/populate.html#dynamic-ref)
-- [Populate Virtuals](https://mongoosejs.com/docs/populate.html#populate-virtuals)
-- [Populate Virtuals: The Count Option](https://mongoosejs.com/docs/populate.html#count)
-- [Populating Maps](https://mongoosejs.com/docs/populate.html#populating-maps)
-- [Populate in Middleware](https://mongoosejs.com/docs/populate.html#populate-middleware)
+- [保存 Refs](#保存-refs)
+- [Population](#population)
+- [设置被填充字段](#设置被填充字段)
+- [检查一个字段是否被填充](#检查一个字段是否被填充)
+- [如果没有 Foreign Document 呢](#如果没有-foreign-document-呢)
+- [字段选择](#字段选择)
+- [填充多个字段](#填充多个字段)
+- [查询条件和其他选项](#查询条件和其他选项)
+- [Refs 到 children](#refs-到-children)
+- [填充一个现成的文档](#填充一个现成的文档)
+- [填充多个现成的文档](#填充多个现成的文档)
+- [多级填充](#多级填充)
+- [跨数据库填充](#跨数据库填充)
+- [通过 refPath 动态引用](#通过-refpath-动态引用)
+- [虚拟字段填充](#虚拟字段填充)
+- [虚拟填充：count 选项](#虚拟填充：count-选项)
+- [填充 Maps](#填充-maps)
+- [在中间件中使用填充](#在中间件中使用填充)
 
 #### 保存 refs
 
@@ -686,7 +775,7 @@ author.save(function (err) {
 
   const story1 = new Story({
     title: 'Casino Royale',
-    author: author._id // assign the _id from the person
+    author: author._id // 使用 person 的 _id 赋值
   });
 
   story1.save(function (err) {
@@ -706,7 +795,7 @@ Story.findOne({ title: 'Casino Royale' })
   .exec(function (err, story) {
     if (err) return handleError(err);
     console.log('The author is %s', story.author.name);
-    // prints "The author is Ian Fleming"
+    // 打印 "The author is Ian Fleming"
   });
 ```
 
@@ -723,7 +812,7 @@ Story.findOne({ title: 'Casino Royale' }, function (error, story) {
     return handleError(error);
   }
   story.author = author;
-  console.log(story.author.name); // prints "Ian Fleming"
+  console.log(story.author.name); // 打印 "Ian Fleming"
 });
 ```
 
@@ -734,7 +823,7 @@ Story.findOne({ title: 'Casino Royale' }, function (error, story) {
 ```javascript
 story.populated('author'); // truthy
 
-story.depopulate('author'); // Make `author` not populated anymore
+story.depopulate('author'); // 不再填充 `author`
 story.populated('author'); // undefined
 ```
 
@@ -744,14 +833,14 @@ story.populated('author'); // undefined
 story.populated('author'); // truthy
 story.author._id; // ObjectId
 
-story.depopulate('author'); // Make `author` not populated anymore
+story.depopulate('author'); // 不再填充 `author`
 story.populated('author'); // undefined
 
 story.author instanceof ObjectId; // true
-story.author._id; // ObjectId, because Mongoose adds a special getter
+story.author._id; // ObjectId, 因为 Mongoose 添加了一个特殊的 getter
 ```
 
-#### 如果没有 Foreign Document 呢？
+#### 如果没有 Foreign Document 呢
 
 Mongoose 的填充表现地不像传统的 [SQL joins](https://www.w3schools.com/sql/sql_join.asp) 那样，当没有文档的时候，`story.author` 会返回 null。这个和 SQL 的 [left join](https://www.w3schools.com/sql/sql_join_left.asp) 类似。
 
@@ -782,15 +871,15 @@ story.authors; // `[]`
 
 ```javascript
 Story.findOne({ title: /casino royale/i })
-  .populate('author', 'name') // only return the Persons name
+  .populate('author', 'name') // 只返回 Persons name
   .exec(function (err, story) {
     if (err) return handleError(err);
 
     console.log('The author is %s', story.author.name);
-    // prints "The author is Ian Fleming"
+    // 打印 "The author is Ian Fleming"
 
     console.log('The authors age is %s', story.author.age);
-    // prints "The authors age is null"
+    // 打印 "The authors age is null"
   });
 ```
 
@@ -809,10 +898,9 @@ Story.
 如果你使用同一个字段多次调用 `populate` 方法，只有最后一个才起作用。
 
 ```javascript
-// The 2nd `populate()` call below overwrites the first because they
-// both populate 'fans'.
+// 后面的 `populate()` 或覆盖前面的，因为都填充了 `fans`
 Story.find().populate({ path: 'fans', select: 'name' }).populate({ path: 'fans', select: 'email' });
-// The above is equivalent to:
+// 上面的相当于：
 Story.find().populate({ path: 'fans', select: 'email' });
 ```
 
@@ -825,7 +913,7 @@ Story.find()
   .populate({
     path: 'fans',
     match: { age: { $gte: 21 } },
-    // Explicitly exclude `_id`, see http://bit.ly/2aEfTdB
+    // 显示地排除 `_id`，请看 https://docs.mongodb.com/manual/tutorial/project-fields-from-query-results/
     select: 'name -_id'
   })
   .exec();
@@ -849,11 +937,11 @@ story; // null
 ```
 
 如果你想根据 author 的 name 属性去过滤 stories，你应该使用 [denormalization](https://www.mongodb.com/blog/post/6-rules-of-thumb-for-mongodb-schema-design-part-3)。
-_注：这里的意思是经过尽量使用嵌套数据结构，而不是使用关联表。_
+_注：这里的意思是尽量使用嵌套数据结构，而不是使用关联表。_
 
 #### limit vs perDocumentLimit
 
-Populate 支持 limit 选项，但是，为了向后兼容，它现在不会将 limit 作用于每个文档。例如，假设你有 2 个 stories：
+填充支持 limit 选项，但是，为了向后兼容，它现在不会将 limit 作用于每个文档。例如，假设你有 2 个 stories：
 
 ```javascript
 Story.create([
@@ -873,7 +961,7 @@ const stories = Story.find().populate({
 stories[0].name; // 'Casino Royale'
 stories[0].fans.length; // 2
 
-// 2nd story has 0 fans!
+// 第二个 story 有0个粉丝
 stories[1].name; // 'Live and Let Die'
 stories[1].fans.length; // 0
 ```
@@ -883,8 +971,8 @@ stories[1].fans.length; // 0
 ```javascript
 const stories = await Story.find().populate({
   path: 'fans',
-  // Special option that tells Mongoose to execute a separate query
-  // for each `story` to make sure we get 2 fans for each story.
+  // 这个特殊的选项会告诉 Mongoose 为每个 `story` 执行单独的查询
+  // 确保我们可以从每个 story 获取 2 个 fans
   perDocumentLimit: 2
 });
 
@@ -897,8 +985,8 @@ stories[1].fans.length; // 2
 
 #### Refs 到 children
 
-我们会发现，如果使用 author 对象，我们无法获取 stories 列表。这是因为没有 story 对象被"pushed"到 `author.stories` 字段。
-这里有两种观点，首先，你可能想知道哪些 stories 是属于这个 author 的。通常，你的 schema 应该通过在"多"方加一个父节点指针来处理一对多关系；但是，如果你有一个好的理由想获取一个子指针数组，你可以按下面展示的 `push()` 文档到数组里。
+我们会发现，如果使用 author 对象，我们将无法获取 stories 列表。这是因为没有 story 对象被 "pushed" 到 `author.stories` 字段。  
+这里有两种观点，首先，你可能想知道哪些 stories 是属于这个 author 的。通常，你的 schema 应该通过在 "多" 方加一个父节点指针来处理一对多关系；但是，如果你有一个好的理由想获取一个子指针数组，你可以按下面展示的将文档 `push()` 到数组里。
 
 ```javascript
 author.stories.push(story1);
@@ -936,10 +1024,10 @@ const person = await Person.findOne({ name: 'Ian Fleming' });
 
 person.populated('stories'); // null
 
-// Call the `populate()` method on a document to populate a path.
+// 在 document 上调用`populate()` 方法来填充一个字段
 await person.populate('stories');
 
-person.populated('stories'); // Array of ObjectIds
+person.populated('stories'); // ObjectIds 数组
 person.stories[0].name; // 'Casino Royale'
 ```
 
@@ -947,7 +1035,7 @@ person.stories[0].name; // 'Casino Royale'
 
 ```javascript
 await person.populate(['stories', 'fans']);
-person.populated('fans'); // Array of ObjectIds
+person.populated('fans'); // ObjectIds 数组
 ```
 
 #### 填充多个现成的文档
@@ -970,7 +1058,7 @@ Populate 让你获取了用户的朋友列表，但是如果你还想获取朋�
 ```javascript
 User.findOne({ name: 'Val' }).populate({
   path: 'friends',
-  // Get friends of friends - populate the 'friends' array for every friend
+  // 获取朋友的朋友 - 为每个 friend 填充 'friends'
   populate: { path: 'friends' }
 });
 ```
@@ -990,7 +1078,7 @@ const eventSchema = new Schema({
   name: String,
   conversation: {
     type: ObjectId,
-    ref: Conversation // `ref` is a **Model class**, not a string
+    ref: Conversation // `ref` 是 **Model class**, 而非字符串
   }
 });
 const Event = db1.model('Event', eventSchema);
@@ -1008,7 +1096,7 @@ const events = await Event.find().populate('conversation');
 
 ```javascript
 const events = await Event.find()
-  // The `model` option specifies the model to use for populating.
+  // `model` 选项指定了填充要使用的 model
   .populate({ path: 'conversation', model: Conversation });
 ```
 
@@ -1055,8 +1143,8 @@ const commentOnPost = await Comment.create({
   onModel: 'BlogPost'
 });
 
-// The below `populate()` works even though one comment references the
-// 'Product' collection and the other references the 'BlogPost' collection.
+
+// 尽管一条评论引用了 'Product' 集合，另一个引用 'BlogPost' 集合，`populate()` 也可以工作
 const comments = await Comment.find().populate('on').sort({ body: 1 });
 comments[0].on.name; // "The Count of Monte Cristo"
 comments[1].on.title; // "Top 10 French Novels"
@@ -1081,8 +1169,9 @@ const commentSchema = new Schema({
 
 // ...
 
-// The below `populate()` is equivalent to the `refPath` approach, you
-// just need to make sure you `populate()` both `product` and `blogPost`.
+
+// 下面的`populate()` 相当于 `refPath` 方式
+// 你只需要确保同时 `populate()` 了 `product` and `blogPost`
 const comments = await Comment.find().populate('product').populate('blogPost').sort({ body: 1 });
 comments[0].product.name; // "The Count of Monte Cristo"
 comments[1].blogPost.title; // "Top 10 French Novels"
@@ -1136,8 +1225,7 @@ const BlogPostSchema = new Schema({
 不幸的是，这两个 schema，这么写的话，不支持填充一个作者的博客列表，这就是*虚拟填充*出现的原因。虚拟填充意味着在一个有 `ref` 选项的虚拟属性上调用 `populate()` ，如下所示。
 
 ```javascript
-// Specifying a virtual with a `ref` property is how you enable virtual
-// population
+// 使用 `ref` 属性指定一个虚拟字段，可以开启虚拟填充
 AuthorSchema.virtual('posts', {
   ref: 'BlogPost',
   localField: '_id',
@@ -1162,8 +1250,8 @@ author.posts[0].title; // 第一个博客的title
 const authorSchema = new Schema(
   { name: String },
   {
-    toJSON: { virtuals: true }, // So `res.json()` and other `JSON.stringify()` functions include virtuals
-    toObject: { virtuals: true } // So `console.log()` and other functions that use `toObject()` include virtuals
+    toJSON: { virtuals: true }, // 这样 `res.json()` 和其他 `JSON.stringify()` 函数会包含虚拟字段
+    toObject: { virtuals: true } // 这样 `console.log()` 和其他使用 `toObject()` 的函数会包含虚拟字段
   }
 );
 ```
@@ -1196,10 +1284,10 @@ const BandSchema = new Schema({
   name: String
 });
 BandSchema.virtual('numMembers', {
-  ref: 'Person', // The model to use
-  localField: 'name', // Find people where `localField`
-  foreignField: 'band', // is equal to `foreignField`
-  count: true // And only get the number of docs
+  ref: 'Person', // 使用的 model
+  localField: 'name', // 找到 `localField`
+  foreignField: 'band', // 和`foreignField` 相等的人
+  count: true // 只获取文档的数量
 });
 
 // Later
@@ -1278,15 +1366,14 @@ const libraries = await Library.find().populate('books.$*.author');
 你可以在 pre 或 post 勾子中使用填充。如果你总是想填充一个确定的字段，可以看看 [mongoose-autopopulate plugin](http://npmjs.com/package/mongoose-autopopulate)。
 
 ```javascript
-// Always attach `populate()` to `find()` calls
+// 在 `find()` 上绑定 `populate()`
 MySchema.pre('find', function () {
   this.populate('user');
 });
 ```
 
 ```javascript
-// Always `populate()` after `find()` calls. Useful if you want to selectively populate
-// based on the docs found.
+// 在 `populate()` 后绑定 `find()`，如果你想选择性的填充找到的文档，这会很有用
 MySchema.post('find', async function (docs) {
   for (let doc of docs) {
     if (doc.isPublic) {
@@ -1297,14 +1384,21 @@ MySchema.post('find', async function (docs) {
 ```
 
 ```javascript
-// `populate()` after saving. Useful for sending populated data back to the client in an
-// update API endpoint
+// 在保存之后 `populate()`，如果想在更新 API 结束之后返回填充后的数据，这会很有用
 MySchema.post('save', function (doc, next) {
   doc.populate('user').then(function () {
     next();
   });
 });
 ```
+
+### Discriminators
+
+### Plugins
+
+### Transactions
+
+### TypeScript
 
 ## API
 ### Mongoose
