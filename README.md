@@ -469,9 +469,40 @@ schema.pre('findOneAndUpdate', function () {
 
 #### 使用 ES6 Classes
 
+Schemas have a `loadClass()` [method](https://mongoosejs.com/docs/api/schema.html#schema_Schema-loadClass) that you can use to create a Mongoose schema from an [ES6 class](https://thecodebarbarian.com/an-overview-of-es6-classes):
+
+- [ES6 class methods](https://masteringjs.io/tutorials/fundamentals/class#methods) become [Mongoose methods](#实例方法)
+- [ES6 class statics](https://masteringjs.io/tutorials/fundamentals/class#statics) become [Mongoose statics](#静态方法)
+- [ES6 getters and setters](https://masteringjs.io/tutorials/fundamentals/class#getterssetters) become [Mongoose virtuals](#virtuals)
+
+Here's an example of using `loadClass()` to create a schema from an ES6 class:
+
+```javascript
+class MyClass {
+  myMethod() { return 42; }
+  static myStatic() { return 42; }
+  get myVirtual() { return 42; }
+}
+
+const schema = new mongoose.Schema();
+schema.loadClass(MyClass);
+
+console.log(schema.methods); // { myMethod: [Function: myMethod] }
+console.log(schema.statics); // { myStatic: [Function: myStatic] }
+console.log(schema.virtuals); // { myVirtual: VirtualType { ... } }
+```
+
 #### 插件化
 
+Schemas are also [pluggable](https://mongoosejs.com/docs/plugins.html) which allows us to package up reusable features into plugins that can be shared with the community or just between your projects.
+
 #### 延伸阅读
+
+Here's an [alternative introduction to Mongoose schemas](https://masteringjs.io/tutorials/mongoose/schema).
+
+To get the most out of MongoDB, you need to learn the basics of MongoDB schema design. SQL schema design (third normal form) was designed to [minimize storage costs](https://en.wikipedia.org/wiki/Third_normal_form), whereas MongoDB schema design is about making common queries as fast as possible. [The 6 Rules of Thumb for MongoDB Schema Design blog series](https://www.mongodb.com/blog/post/6-rules-of-thumb-for-mongodb-schema-design-part-1) is an excellent resource for learning the basic rules for making your queries fast.
+
+Users looking to master MongoDB schema design in Node.js should look into [The Little MongoDB Schema Design Book](http://bit.ly/mongodb-schema-design) by Christian Kvalheim, the original author of the [MongoDB Node.js driver](http://npmjs.com/package/mongodb). This book shows you how to implement performant schemas for a laundry list of use cases, including e-commerce, wikis, and appointment bookings.
 
 ### SchemaTypes
 
@@ -1724,6 +1755,46 @@ app.put('/person/:id', function(req, res) {
 ### Validation
 
 ### Middleware
+
+Middleware (also called pre and post hooks) are functions which are passed control during execution of asynchronous functions. Middleware is specified on the schema level and is useful for writing plugins.
+
+- [Types of Middleware](#)
+- [Pre](#)
+- [Errors in Pre Hooks](#)
+- [Post middleware](#)
+- [Asynchronous Post Hooks](#)
+- [Define Middleware Before Compiling Models](#)
+- [Save/Validate Hooks](#)
+- [Naming Conflicts](#)
+- [Notes on findAndUpdate() and Query Middleware](#)
+- [Error Handling Middleware](#)
+- [Aggregation Hooks](#)
+- [Synchronous Hooks](#)
+
+#### Types of Middleware
+
+#### Pre
+
+#### Errors in Pre Hooks
+
+#### Post middleware
+
+#### Asynchronous Post Hooks
+
+#### Define Middleware Before Compiling Models
+
+#### Save/Validate Hooks
+
+#### Naming Conflicts
+
+#### Notes on findAndUpdate() and Query Middleware
+
+#### Error Handling Middleware
+
+#### Aggregation Hooks
+
+#### Synchronous Hooks
+
 
 ### Populate
 
