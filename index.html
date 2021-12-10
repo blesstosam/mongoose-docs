@@ -11,6 +11,7 @@
   <style>
     :root {
       --navbar-bg: #8d2222;
+      --navbar-fg: #fff;
       --navlink-hover-bg: #742b2b;
       /* --sidebar-bg: #f0f4ff; */
       /* --sidebar-menu-item-active-fg: #bd1e68; */
@@ -28,9 +29,10 @@
   loading...
   <!-- Start app -->
   <script type="module">
-    import * as docup from './docup/docup.min.js'
+    import * as docup from 'https://cdn.jsdelivr.net/npm/@egoist/docup@2.1.1/dist/docup.min.js'
 
     docup.init({
+      useSystemTheme: false,
       highlightLanguages: ['go'],
       navLinks: [
         { text: '指南', link: '#指南' },
