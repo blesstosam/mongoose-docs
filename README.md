@@ -33,7 +33,7 @@ const kittySchema = new mongoose.Schema({
 });
 ```
 
-目前为止一切正常。我们得到了一个拥有一个属性的 schema，name, 是一个字符串。下一步是将我们的 schema 编译成一个 Model。
+目前为止一切正常。我们得到了一个拥有一个属性的 schema，name 是一个字符串。下一步是将我们的 schema 编译成一个 Model。
 ```javascript
 const Kitten = mongoose.model('Kitten', kittySchema);
 ```
@@ -88,7 +88,7 @@ await Kitten.find({ name: /^fluff/ });
 
 这会查询名字以 "fluff" 开头的所有文档并且返回一个小猫的数组到回调中。
 
-##### 恭喜
+恭喜
 
 快速开始到此为止。我们使用 Mongoose 创建了一个 schema，添加了一个自定义方法，在 MongoDB 里保存和查询了小猫。去 [指南](#指南) 和 [API 文档](#api) 获取更多信息。
 
@@ -97,6 +97,9 @@ await Kitten.find({ name: /^fluff/ });
 ## 指南
 
 ### Schemas
+
+
+如果你还没看过 [快速开始](#快速开始)，请花个 1 分钟时间看一下，然后你会了解 Mongoose 是如何工作的。如果你准备从 5.x 迁移到 6.x，请花点时间看看 [迁移指导](https://mongoosejs.com/docs/migrating_to_6.html)。
 
 - [定义你的 schema](#定义你的-schema)
 - [创建 Model](#创建-model)
@@ -1194,7 +1197,7 @@ setTimeout(function() {
 mongoose.set('bufferCommands', false);
 ```
 
-注意，如果开启了 [autoCreate option](#autocreate)，缓冲还会一直等待，直到 Mongoose 创建集合。要禁用缓存，你还应该禁用 `autoCreate` 选项，并且使用 `createCollection()` 创建 [固定集合](#capped) 或 [collections with collations](#collation)。
+注意，如果开启了 [autoCreate option](#autocreate)，缓存还会一直等待，直到 Mongoose 创建集合。要禁用缓存，你还应该禁用 `autoCreate` 选项，并且使用 `createCollection()` 创建 [固定集合](#capped) 或 [collections with collations](#collation)。
 
 ```javascript
 const schema = new Schema({
@@ -1754,47 +1757,507 @@ app.put('/person/:id', function(req, res) {
 
 ### Validation
 
-### Middleware
+Before we get into the specifics of validation syntax, please keep the following rules in mind:
 
-Middleware (also called pre and post hooks) are functions which are passed control during execution of asynchronous functions. Middleware is specified on the schema level and is useful for writing plugins.
+- Validation is defined in the [SchemaType](#schematypes)
+- Validation is [middleware](#中间件). Mongoose registers validation as a `pre('save')` hook on every schema by default.
+- You can disable automatic validation before save by setting the [validateBeforeSave option](https://mongoosejs.com/docs/guide.html#validateBeforeSave)
+- You can manually run validation using `doc.validate(callback)` or `doc.validateSync()`
+- You can manually mark a field as invalid (causing validation to fail) by using `doc.invalidate(...)`
+- Validators are not run on undefined values. The only exception is the `required` [validator](https://mongoosejs.com/docs/api.html#schematype_SchemaType-required).
+- Validation is asynchronously recursive; when you call [Model#save](https://mongoosejs.com/docs/api.html#model_Model-save), sub-document validation is executed as well. - If an error occurs, your [Model#save](https://mongoosejs.com/docs/api.html#model_Model-save) callback receives it
+- Validation is customizable
 
-- [Types of Middleware](#)
-- [Pre](#)
-- [Errors in Pre Hooks](#)
-- [Post middleware](#)
-- [Asynchronous Post Hooks](#)
-- [Define Middleware Before Compiling Models](#)
-- [Save/Validate Hooks](#)
-- [Naming Conflicts](#)
-- [Notes on findAndUpdate() and Query Middleware](#)
-- [Error Handling Middleware](#)
-- [Aggregation Hooks](#)
-- [Synchronous Hooks](#)
+```javascript
+const schema = new Schema({
+  name: {
+    type: String,
+    required: true
+  }
+});
+const Cat = db.model('Cat', schema);
 
-#### Types of Middleware
+// This cat has no name :(
+const cat = new Cat();
+cat.save(function(error) {
+  assert.equal(error.errors['name'].message,
+    'Path `name` is required.');
+
+  error = cat.validateSync();
+  assert.equal(error.errors['name'].message,
+    'Path `name` is required.');
+});
+```
+
+#### Built-in Validators
+
+#### Custom Error Messages
+
+#### The unique Option is Not a Validator
+
+
+#### Custom Validators
+
+#### Async Custom Validators
+
+#### Validation Errors
+
+#### Cast Errors
+
+#### Required Validators On Nested Objects
+
+#### Update Validators
+
+#### Update Validators and this
+
+
+#### The context option
+
+#### Update Validators Only Run On Updated Paths
+
+#### Update Validators Only Run For Some Operations
+
+
+### 中间件
+
+中间件（也叫 pre 和 post 钩子）是在执行异步函数时传递控制的函数。中间件在 scheme 级别上指定，对写 [插件](#插件) 非常有用。
+
+- [中间件类型](#中间件类型)
+- [Pre](#Pre)
+- [Pre 钩子的报错](#pre-钩子的报错)
+- [Post 中间件](#post-中间件)
+- [异步 Post 钩子](#异步-post-钩子)
+- [编辑 Models 之前定义中间件](#编辑-Models-之前定义中间件)
+- [保存/校验钩子](#保存校验钩子)
+- [命名冲突](#命名冲突)
+- [请注意 findAndUpdate() 和 Query 中间件](#请注意-findandupdate-和-query-中间件)
+- [中间件错误处理](#中间件错误处理)
+- [Aggregation 钩子](#aggregation-钩子)
+- [同步钩子](#)
+
+#### 中间件类型
+
+Mongoose 有 4 种中间件：document 中间件，model 中间件，aggregate 中间件，query 中间件。以下 document 函数可以使用 document 中间件。在 document 中间件函数里，`this` 指向文档对象。
+
+- [validate](#)
+- [save](#)
+- [remove](#)
+- [updateOne](#)
+- [deleteOne](#)
+- [init](3) (note: init hooks are [synchronous](#))
+
+以下 Model 和 Query 函数可以使用 query 中间件。在 query 中间件函数里, `this` 指向 query 对象。
+
+- [count](#)
+- [countDocuments](#)
+- [deleteMany](#)
+- [deleteOne](#)
+- [estimatedDocumentCount](#)
+- [find](#)
+- [findOne](#)
+- [findOneAndDelete](#)
+- [findOneAndRemove](#)
+- [findOneAndReplace](#)
+- [findOneAndUpdate](#)
+- [remove](#)
+- [replaceOne](#)
+- [update](#)
+- [updateOne](#)
+- [updateMany](#)
+
+Aggregate 中间件用于 `MyModel.aggregate()`。当在 aggregate 对象上调用 `exec()` 时会执行 aggregate 中间件。在 aggregate 中间件里, `this` 指向 aggregation 对象。
+
+- [aggregate](#)
+
+以下  model 函数可以使用 model 中间件。在 model 中间件函数里，`this` 指向 model 对象。
+
+- [insertMany](#)
+
+所有中间件类型都支持 pre 和 post 钩子。下面会详细介绍 pre 和 post 钩子是怎样工作的。
+
+注意：如果你指定 `schema.pre('remove')`， Mongoose 会默认将该中间件注册到 `doc.remove()` 上，如果你想让中间件运行在 `Query.remove()` 上，请使用  `schema.pre('remove', { query: true, document: false }, fn)`。
+
+注意：和 `schema.pre('remove')` 不同的是，Mongoose 默认会将 `updateOne` and `deleteOne` 中间件注册到 `Query#updateOne()` 和 `Query#deleteOne()`上。 这意味着 `doc.updateOne()` 和 `Model.updateOne()` 都会触发 `updateOne` 钩子，但是 `this` 指向 query 对象，而不是文档对象。要将 `updateOne` or `deleteOne` 中间件注册成 document 中间件，请使用 `schema.pre('updateOne', { document: true, query: false })`。
+
+注意：`create()` 函数会触发 `save()` 钩子。
+
 
 #### Pre
+ 
+当每个中间件调用 `next` 方法时，pre 中间件函数会一个接一个地执行。
 
-#### Errors in Pre Hooks
+```javascript
+const schema = new Schema(..);
+schema.pre('save', function(next) {
+  // 做些什么
+  next();
+});
+```
 
-#### Post middleware
+在 mongoose 5.x 里，除了手动调用 `next()` 方法外，你还可以使用一个返回 promise 的函数。具体来说，你可以使用 `async/await` 。
 
-#### Asynchronous Post Hooks
+```javascript
+schema.pre('save', function() {
+  return doStuff().
+    then(() => doMoreStuff());
+});
 
-#### Define Middleware Before Compiling Models
+// Or, in Node.js >= 7.6.0:
+schema.pre('save', async function() {
+  await doStuff();
+  await doMoreStuff();
+});
+```
+如果你使用 `next()`， `next()` 调用不会阻止你中间件函数里剩余代码的执行。你可以使用 [the early `return` pattern](https://www.bennadel.com/blog/2323-use-a-return-statement-when-invoking-callbacks-especially-in-a-guard-statement.htm) 来阻止中间件函数里剩余代码的执行。
 
-#### Save/Validate Hooks
 
-#### Naming Conflicts
+```javascript
+const schema = new Schema(..);
+schema.pre('save', function(next) {
+  if (foo()) {
+    console.log('calling next!');
+    // `return next();` 会让剩余代码无法执行
+    /*return*/ next();
+  }
+  // 除非像上面那样注释掉 `return`，否则 'after next' 会打印
+  console.log('after next');
+});
+```
 
-#### Notes on findAndUpdate() and Query Middleware
+用例
 
-#### Error Handling Middleware
+中间件对于原子化模型逻辑很有用。以下是一些其他的想法：
 
-#### Aggregation Hooks
+- 复杂校验
+- 删除依赖文档 (删除用户并且删除用户所有的博客)
+- 异步默认操作
+- 特定动作触发的异步任务
 
-#### Synchronous Hooks
 
+#### Pre 钩子的报错
+
+如果任何 pre 钩子报错了，mongoose 将不会执行后续的中间件或被钩住的函数。取而代之地，mongoose 会传递一个 error 给回调函数或者返回一个 reject 的 promise。在中间件里，有几种方法来报告一个错误：
+
+```javascript
+schema.pre('save', function(next) {
+  const err = new Error('something went wrong');
+  // 如果你调用 `next()` 并传递一个参数，这个参数被假定为一个 error
+  next(err);
+});
+
+schema.pre('save', function() {
+  // 你也可以返回一个 reject 的 promise
+  return new Promise((resolve, reject) => {
+    reject(new Error('something went wrong'));
+  });
+});
+
+schema.pre('save', function() {
+  // 你也可以抛出一个同步错误
+  throw new Error('something went wrong');
+});
+
+schema.pre('save', async function() {
+  await Promise.resolve();
+  // 你也可以在 `async` 函数里抛出一个错误
+  throw new Error('something went wrong');
+});
+
+// 然后...
+
+// 更改将不会被持久化到MongoDB，因为预钩子报错了
+myDoc.save(function(err) {
+  console.log(err.message); // 发生了一些错误
+});
+```
+
+多次调用 `next()` 是无效的。如果你使用 `err1` 调用 `next()`，然后再抛出 `err2`，mongoose 将会报告 `err1`。
+
+
+#### Post 中间件
+
+[post](https://mongoosejs.com/docs/api.html#schema_Schema-post) 中间件将在被钩住方法和其所有 `pre` 中间件完成之后再执行。
+
+```javascript
+schema.post('init', function(doc) {
+  console.log('%s has been initialized from the db', doc._id);
+});
+schema.post('validate', function(doc) {
+  console.log('%s has been validated (but not saved yet)', doc._id);
+});
+schema.post('save', function(doc) {
+  console.log('%s has been saved', doc._id);
+});
+schema.post('remove', function(doc) {
+  console.log('%s has been removed', doc._id);
+});
+```
+
+#### 异步 Post 钩子
+
+如果你的 post 钩子函数接收至少两个参数，mongoose 会假定第二个参数是你将会用来触发队列中下一个中间件的 `next()` 函数。
+
+```javascript
+// 接收 2 参数：这是一个异步 post 钩子
+schema.post('save', function(doc, next) {
+  setTimeout(function() {
+    console.log('post1');
+    // 启动第二个 post 钩子
+    next();
+  }, 10);
+});
+
+// 直到第一个中间件调用 `next()` 才执行
+schema.post('save', function(doc, next) {
+  console.log('post2');
+  next();
+});
+```
+
+#### 在编译 Models 之前定义中间件
+
+
+在 [编译一个 model](https://mongoosejs.com/docs/models.html#compiling) 之后调用 `pre()` 或 `post()` 在 mongoose 里通常不会起作用。例如：下面的 `pre('save')` 中间件不会触发。
+
+```javascript
+const schema = new mongoose.Schema({ name: String });
+
+// 用 schema 编译一个 model
+const User = mongoose.model('User', schema);
+
+// Mongoose 不会调用这个中间件函数，因为其是在 model 编译之后定义的
+schema.pre('save', () => console.log('Hello from pre save'));
+
+new User({ name: 'test' }).save();
+```
+这意味着你必须在调用 `mongoose.model()` 之前加上所有的中间件和 [插件](#插件) 。下面的脚步会打印 "Hello from pre save"：
+
+```javascript
+const schema = new mongoose.Schema({ name: String });
+// Mongoose 会调用该中间件函数，因为脚步在编译 model 之前添加了中间件
+schema.pre('save', () => console.log('Hello from pre save'));
+
+// 用 schema 编译一个 model
+const User = mongoose.model('User', schema);
+
+new User({ name: 'test' }).save();
+```
+
+因此，要注意从定义 schema 的同一个文件里导出 Mongoose models 这种行为，如果你选择使用这种范式，你必须在 model 文件里调用 `require()` 之前定义好 [全局插件](https://mongoosejs.com/docs/api/mongoose.html#mongoose_Mongoose-plugin)。
+
+```javascript
+const schema = new mongoose.Schema({ name: String });
+
+// 一旦你 `require()` 该文件，你将不能再添加任何中间件到该 schema
+module.exports = mongoose.model('User', schema);
+```
+
+#### 保存/校验钩子
+
+
+`save()` 函数会触发 `validate()` 钩子，因为 mongoose 内置了一个 `pre('save')` 钩子会调用 `validate()`。这意味着所有 `pre('validate')` 和 `post('validate')` 钩子会在任何 `pre('save')` 钩子之前被调用。
+
+```javascript
+schema.pre('validate', function() {
+  console.log('this gets printed first');
+});
+schema.post('validate', function() {
+  console.log('this gets printed second');
+});
+schema.pre('save', function() {
+  console.log('this gets printed third');
+});
+schema.post('save', function() {
+  console.log('this gets printed fourth');
+});
+```
+
+#### 命名冲突
+
+Mongoose 同时有 `remove()` 操作的 query 和 document 钩子。
+
+```javascript
+schema.pre('remove', function() { console.log('Removing!'); });
+
+// 打印 "Removing!"
+doc.remove();
+
+// 不会打印 "Removing!"。 `remove` 的 query 中间件默认不会执行
+Model.remove();
+```
+你可以传递选项给 `Schema.pre()` 和 `Schema.post()` 来切换是在 `Document.remove()` 上还是在 `Model.remove()` 上调用 `remove()` 钩子。请注意，你需要在传递对象里同时设置 `document` 和 `query` 属性：
+
+```javascript
+// 只在 document 中间件上
+schema.pre('remove', { document: true, query: false }, function() {
+  console.log('Removing doc!');
+});
+
+// 只在 query 中间件上，这将在 `Model.remove()` 时调用， `doc.remove()` 则不会
+schema.pre('remove', { query: true, document: false }, function() {
+  console.log('Removing!');
+});
+```
+
+#### 请注意 findAndUpdate() 和 Query 中间件
+
+Pre 和 post 的 `save()` 钩子不会在  `update()`, `findOneAndUpdate()` 等几个方法上执行。你可以在 [this GitHub issue](http://github.com/Automattic/mongoose/issues/964) 里查看更多讨论细节。 Mongoose 4.0 为这些函数引入了不同的钩子。
+
+```javascript
+schema.pre('find', function() {
+  console.log(this instanceof mongoose.Query); // true
+  this.start = Date.now();
+});
+
+schema.post('find', function(result) {
+  console.log(this instanceof mongoose.Query); // true
+  // 打印返回的文档
+  console.log('find() returned ' + JSON.stringify(result));
+  // 打印查询花费的毫秒数
+  console.log('find() took ' + (Date.now() - this.start) + ' millis');
+});
+```
+
+Query 中间件 和 document 中间件有着细微但重要的区别： 在 document 中间件里，`this` 指向要更新的文档。在 query 中间件里，mongoose 不一定有（doesn't necessarily have）对要更新文档的引用，所以 `this` 指向查询对象而不是要更新的文档。
+
+例如，如果你想在每次 `updateOne()` 调用时添加一个 `updatedAt` 时间戳，你应该使用以下 pre 钩子。
+
+```javascript
+schema.pre('updateOne', function() {
+  this.set({ updatedAt: new Date() });
+});
+```
+你不能在 `pre('updateOne')` 或 `pre('findOneAndUpdate')` 的 query 中间件里访问要被更新的文档，如果你想访问要更新的文档，你需要做一个显式的文档查询。
+
+```javascript
+schema.pre('findOneAndUpdate', async function() {
+  const docToUpdate = await this.model.findOne(this.getQuery());
+  console.log(docToUpdate); // `findOneAndUpdate()` 要修改的文档
+});
+```
+但是，如果你定义了 `pre('updateOne')` 的 document 中间件，`this` 则是要被更新的文档。这是因为 `pre('updateOne')` 钩入了 `Document#updateOne()` 而不是 `Query#updateOne()`。
+
+```javascript
+schema.pre('updateOne', { document: true, query: false }, function() {
+  console.log('Updating');
+});
+const Model = mongoose.model('Test', schema);
+
+const doc = new Model();
+await doc.updateOne({ $set: { name: 'test' } }); // 打印 "Updating"
+
+// 不会打印 "Updating", 因为 `Query#updateOne()` 没有触发 document 中间件
+await Model.updateOne({}, { $set: { name: 'test' } });
+```
+
+#### 中间件错误处理
+
+_4.5.0 新增_
+
+中间件执行通常在第一次调用 `next()` 报错时停止。然而，有一种特殊的 post 中间件称为 “错误处理中间件”，它专门在错误发生时执行。错误处理中间件在报告错误和提高报错信息的可读性非常有用。
+
+错误处理中间件被定义为带有一个额外参数的中间件：作为函数的第一个参数的 'error' 。然后，错误处理中间件可以按照你的意愿对错误进行转换。
+
+
+```javascript
+const schema = new Schema({
+  name: {
+    type: String,
+    // 会触发一个 11000 状态码的 MongoServerError 当你保存一个重复的 name
+    unique: true
+  }
+});
+
+// 处理程序要接收3个参数： 发生的错误，有问题的文档和 `next()` 函数
+schema.post('save', function(error, doc, next) {
+  if (error.name === 'MongoServerError' && error.code === 11000) {
+    next(new Error('There was a duplicate key error'));
+  } else {
+    next();
+  }
+});
+
+// 会触发 `post('save')` 错误处理程序
+Person.create([{ name: 'Axl Rose' }, { name: 'Axl Rose' }]);
+```
+
+错误处理中间件也可以与 query 中间件一起工作。你可以定义一个 post `update()` 钩子来捕获 MongoDB 的重复键错误。
+
+```javascript
+// 当你调用 `update()` 时，同样会发生 E11000 报错
+// 该函数必须接收3个参数，如果你使用了 `passRawResult` 函数，该函数必须接收4个参数
+schema.post('update', function(error, res, next) {
+  if (error.name === 'MongoServerError' && error.code === 11000) {
+    next(new Error('There was a duplicate key error'));
+  } else {
+    next(); // `update()` 调用依然会报错
+  }
+});
+
+const people = [{ name: 'Axl Rose' }, { name: 'Slash' }];
+Person.create(people, function(error) {
+  Person.update({ name: 'Slash' }, { $set: { name: 'Axl Rose' } }, function(error) {
+    // `error.message` 会是 "There was a duplicate key error"
+  });
+});
+```
+
+错误处理中间件可以转换错误，但不能删除错误。即使如上所示不使用 error 调用 `next()`，函数调用仍然会报错。
+
+#### Aggregation 钩子
+
+你还可以为 [`Model.aggregate()` 函数](https://mongoosejs.com/docs/api.html#model_Model.aggregate) 定义钩子。在 aggregation 中间件里, `this` 指向 [Mongoose Aggregate 对象](https://mongoosejs.com/docs/api.html#Aggregate)。例如，假设你正在 `Customer` model 上通过添加一个 `isDeleted` 属性来实现软删除，要确保 `aggregate()` 调用只会查找没有被软删除的 customers，你可以使用以下中间件在 [aggregation pipeline](https://docs.mongodb.com/manual/core/aggregation-pipeline/) 开头添加一个 [`$match` stage](https://mongoosejs.com/docs/api.html#aggregate_Aggregate-match) 。
+
+```javascript
+customerSchema.pre('aggregate', function() {
+  // 在每个 pipeline 开头添加一个 $match state 
+  this.pipeline().unshift({ $match: { isDeleted: { $ne: true } } });
+});
+```
+
+[`Aggregate#pipeline()` 函数](https://mongoosejs.com/docs/api.html#aggregate_Aggregate-pipeline) 让你可以访问 Mongoose 将会发送给 MongoDB 服务器的 MongoDB aggregation pipeline。这对于使用中间件在 pipeline 开头添加 stages 非常有作用。
+
+#### 同步钩子
+
+某些 Mongoose 钩子是同步的，这意味着它们不支持返回 promise 或接收 `next()` 回调。目前为止，只有 `init` 勾子是同步的，因为
+[`init()` 函数](https://mongoosejs.com/docs/api.html#document_Document-init) 是同步的。下面是使用 pre 和 post init 钩子的示例。
+
+```javascript
+const schema = new Schema({ title: String, loadedAt: Date });
+
+schema.pre('init', pojo => {
+  assert.equal(pojo.constructor.name, 'Object'); // init 之前是纯对象
+});
+
+const now = new Date();
+schema.post('init', doc => {
+  assert.ok(doc instanceof mongoose.Document); // init 之后是 mongoose 文档
+  doc.loadedAt = now;
+});
+
+const Test = db.model('Test', schema);
+
+return Test.create({ title: 'Casino Royale' }).
+  then(doc => Test.findById(doc)).
+  then(doc => assert.equal(doc.loadedAt.valueOf(), now.valueOf()));
+```
+
+要在 init 钩子中报告错误，你必须抛出同步错误。与所有其他中间件不同，init 中间件不处理 promise rejections。
+
+```javascript
+const schema = new Schema({ title: String });
+
+const swallowedError = new Error('will not show');
+// init 钩子不处理异步错误或任何类型的异步行为
+schema.pre('init', () => Promise.reject(swallowedError));
+schema.post('init', () => { throw Error('will show'); });
+
+const Test = db.model('Test', schema);
+
+return Test.create({ title: 'Casino Royale' }).
+  then(doc => Test.findById(doc)).
+  catch(error => assert.equal(error.message, 'will show'));
+```
 
 ### Populate
 
@@ -2448,7 +2911,7 @@ const libraries = await Library.find().populate('books.$*.author');
 
 #### 在中间件中使用填充
 
-你可以在 pre 或 post 勾子中使用填充。如果你总是想填充一个确定的字段，可以看看 [mongoose-autopopulate plugin](http://npmjs.com/package/mongoose-autopopulate)。
+你可以在 pre 或 post 钩子中使用填充。如果你总是想填充一个确定的字段，可以看看 [mongoose-autopopulate plugin](http://npmjs.com/package/mongoose-autopopulate)。
 
 ```javascript
 // 在 `find()` 上绑定 `populate()`
@@ -2479,7 +2942,7 @@ MySchema.post('save', function (doc, next) {
 
 ### Discriminators
 
-### Plugins
+### 插件
 
 ### Transactions
 
