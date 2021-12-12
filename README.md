@@ -1830,7 +1830,7 @@ cat.save(function(error) {
 - [编辑 Models 之前定义中间件](#编辑-Models-之前定义中间件)
 - [保存/校验钩子](#保存校验钩子)
 - [命名冲突](#命名冲突)
-- [请注意 findAndUpdate() 和 Query 中间件](#请注意-findandupdate-和-query-中间件)
+- [注意 findAndUpdate() 和 Query 中间件](#注意-findandupdate-和-query-中间件)
 - [中间件错误处理](#中间件错误处理)
 - [Aggregation 钩子](#aggregation-钩子)
 - [同步钩子](#)
@@ -2099,7 +2099,7 @@ schema.pre('remove', { query: true, document: false }, function() {
 });
 ```
 
-#### 请注意 findAndUpdate() 和 Query 中间件
+#### 注意 findAndUpdate() 和 Query 中间件
 
 Pre 和 post 的 `save()` 钩子不会在  `update()`, `findOneAndUpdate()` 等几个方法上执行。你可以在 [this GitHub issue](http://github.com/Automattic/mongoose/issues/964) 里查看更多讨论细节。 Mongoose 4.0 为这些函数引入了不同的钩子。
 
