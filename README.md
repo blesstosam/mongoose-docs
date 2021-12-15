@@ -108,7 +108,7 @@ await Kitten.find({ name: /^fluff/ });
 - [静态方法](#静态方法)
 - [Query Helpers](#query-helpers)
 - [索引](#索引)
-- [Virtuals](#virtuals)
+- [虚拟字段](#虚拟字段)
 - [别名](#别名)
 - [选项](#选项)
 - [使用 ES6 Classes](#arrays)
@@ -289,9 +289,118 @@ Animal.on('index', (error) => {
 });
 ```
 
-#### Virtuals
+#### 虚拟字段
+
+[虚拟字段](https://mongoosejs.com/docs/api.html#schema_Schema-virtual) 是可以获取和设置但不会持久化到 MongoDB 的文档属性。getters 用于格式化或组合字段，而 setters 用于将单个值分解为多个值存储。
+
+```javascript
+  // 定义一个 schema
+  const personSchema = new Schema({
+    name: {
+      first: String,
+      last: String
+    }
+  });
+
+  // 编译到 model
+  const Person = mongoose.model('Person', personSchema);
+
+  // 创建一个文档
+  const axl = new Person({
+    name: { first: 'Axl', last: 'Rose' }
+  });
+```
+
+假设你想打印 person 的全名。你可以自己手动做：
+
+```javascript
+console.log(axl.name.first + ' ' + axl.name.last); // Axl Rose
+```
+ 
+但是每次 [连接](https://masteringjs.io/tutorials/fundamentals/string-concat) 姓和名会变得很麻烦，比如你想在姓名上做一些额外的操作，比如 [删除变音符号](https://www.npmjs.com/package/diacritics) 呢？[virtual property getter](https://mongoosejs.com/docs/api.html#virtualtype_VirtualType-get) 允许你定义一个不会持久化到 MongoDB 的 `fullName` 属性。
+
+```javascript
+personSchema.virtual('fullName').get(function() {
+  return this.name.first + ' ' + this.name.last;
+});
+```
+
+现在，mongoose 会在你每次访问 `fullName` 属性的时候调用 getter 函数：
+
+
+```javascript
+console.log(axl.fullName); // Axl Rose
+```
+
+如果你使用 `toJSON()` 或 `toObject()`，mongoose 默认不会包含 virtuals，在 Mongoose 文档上调用 `JSON.stringify()` 也是如此，因为 [`JSON.stringify()` 会调用 `toJSON()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#description)。请传递 `{ virtuals: true }` 给 `toObject()` 或 `toJSON()`。
+
+你还可以给虚拟字段添加一个自定义 setter 使得你可以通过 `fullName` 这个虚拟字段同时设置姓氏和名字。
+
+```javascript
+personSchema.virtual('fullName').
+  get(function() {
+    return this.name.first + ' ' + this.name.last;
+    }).
+  set(function(v) {
+    this.name.first = v.substr(0, v.indexOf(' '));
+    this.name.last = v.substr(v.indexOf(' ') + 1);
+  });
+
+axl.fullName = 'William Rose'; // 现在 `axl.name.first` 为 "William"
+```
+
+虚拟字段 setters 在其他 validation 之前被调用。所以当  `first` and `last` 两个字段为必需时，上面的例子仍然正常工作。
+
+只有非虚拟字段可以作为查询和字段选择的一部分，因为虚拟虚拟不存储在 MongoDB 中，你不能用它们来查询。
+
+[你可以在这里了解更多关于虚拟字段的知识](https://masteringjs.io/tutorials/mongoose/virtuals).
+
 
 #### 别名
+
+别名是一种特殊类型的虚拟字段，其 getter 和 setter 可以无缝地获取和设置另一个属性。这对于节省网络带宽非常方便，因此你可以将存储在数据库中的短属性名称转换为更长的名称，以提高代码的可读性。
+
+```javascript
+const personSchema = new Schema({
+  n: {
+    type: String,
+    // Now accessing `name` will get you the value of `n`, and setting `name` will set the value of `n`
+    alias: 'name'
+  }
+});
+
+// 设置 `name` 会传导给 `n`
+const person = new Person({ name: 'Val' });
+console.log(person); // { n: 'Val' }
+console.log(person.toObject({ virtuals: true })); // { n: 'Val', name: 'Val' }
+console.log(person.name); // "Val"
+
+person.name = 'Not Val';
+console.log(person); // { n: 'Not Val' }
+```
+
+你还可以给嵌套的字段声明一个别名。使用嵌套 schema 和 [子文档](#subdocuments) 更容易，但你也可以内联声明嵌套路径别名，只要使用完整嵌套路径 `nested.myProp` 作为别名。
+
+```javascript
+const childSchema = new Schema({
+  n: {
+    type: String,
+    alias: 'name'
+  }
+}, { _id: false });
+
+const parentSchema = new Schema({
+  // 如果在 schema 里，别名不需要包含完整路径
+  c: childSchema,
+  name: {
+    f: {
+      type: String,
+      // 如果使用内联声明，别名需要包含完整嵌套路径
+      alias: 'name.first'
+    }
+  }
+});
+```
 
 #### 选项
 
@@ -337,6 +446,18 @@ Clock.ensureIndexes(callback);
 
 ##### autoCreate
 
+Before Mongoose builds indexes, it calls `Model.createCollection()` to create the underlying collection in MongoDB if `autoCreate` is set to true. Calling `createCollection()` [sets the collection's default collation](https://thecodebarbarian.com/a-nodejs-perspective-on-mongodb-34-collations) based on the [collation option](#collation) and establishes the collection as a capped collection if you set the [`capped` schema option](#capped). Like `autoIndex`, setting `autoCreate` to true is helpful for development and test environments.
+
+Unfortunately, `createCollection()` cannot change an existing collection. For example, if you add `capped: 1024` to your schema and the existing collection is not capped, `createCollection()` will throw an error. Generally, `autoCreate` should be `false` for production environments.
+
+```javascript
+const schema = new Schema({..}, { autoCreate: true, capped: 1024 });
+const Clock = mongoose.model('Clock', schema);
+// Mongoose will create the capped collection for you.
+```
+
+Unlike `autoIndex`, `autoCreate` is `false` by default. You can change this default by setting `mongoose.set('autoCreate', true);`
+
 
 ##### bufferCommands
 
@@ -356,12 +477,25 @@ const schema = new Schema({..}, { bufferCommands: false });
 
 ##### bufferTimeoutMS
 
+If bufferCommands is on, this option sets the maximum amount of time Mongoose buffering will wait before throwing an error. If not specified, Mongoose will use 10000 (10 seconds).
+
+```javascript
+// If an operation is buffered for more than 1 second, throw an error.
+const schema = new Schema({..}, { bufferTimeoutMS: 1000 });
+```
+
 ##### capped
 
 Mongoose 支持**固定集合，**要设置一个集合为固定集合，添加 capped 选项并设置其大小，单位为 bytes
 
 ```javascript
 new Schema({..}, { capped: 1024 });
+```
+
+The `capped` option may also be set to an object if you want to pass additional options like [max](http://www.mongodb.org/display/DOCS/Capped+Collections#CappedCollections-max) or [autoIndexId](https://docs.mongodb.com/manual/core/capped-collections/#CappedCollections-autoIndexId). In this case you must explicitly pass the `size` option, which is required.
+
+```javascript
+new Schema({..}, { capped: { size: 1024, max: 1000, autoIndexId: true } });
 ```
 
 ##### collection
