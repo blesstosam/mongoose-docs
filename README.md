@@ -162,7 +162,7 @@ const blogSchema = new Schema({
 
 ```javascript
 const Blog = mongoose.model('Blog', blogSchema);
-// ready to go!
+// 准备好了！
 ```
 
 #### Ids
@@ -446,17 +446,17 @@ Clock.ensureIndexes(callback);
 
 ##### autoCreate
 
-Before Mongoose builds indexes, it calls `Model.createCollection()` to create the underlying collection in MongoDB if `autoCreate` is set to true. Calling `createCollection()` [sets the collection's default collation](https://thecodebarbarian.com/a-nodejs-perspective-on-mongodb-34-collations) based on the [collation option](#collation) and establishes the collection as a capped collection if you set the [`capped` schema option](#capped). Like `autoIndex`, setting `autoCreate` to true is helpful for development and test environments.
+如果 autoCreate 设置为 true，在 Mongoose 构建索引之前，它会先调用 `Model.createCollection()` 在 MongoDB 中创建集合。调用 `createCollection()` 时会根据 [collation 选项](#collation) 来 [设置集合的默认排序规则](https://thecodebarbarian.com/a-nodejs-perspective-on-mongodb-34-collations)，如果设置了[`capped` schema 选项](#capped)，则将该集合建立为固定集合。和 `autoIndex` 一样，将 `autoCreate` 设置为 true 对于开发和测试环境很有用。
 
-Unfortunately, `createCollection()` cannot change an existing collection. For example, if you add `capped: 1024` to your schema and the existing collection is not capped, `createCollection()` will throw an error. Generally, `autoCreate` should be `false` for production environments.
+不幸的是，`createCollection()` 不能更改现有的集合。例如，如果你在 schema 里添加 `capped: 1024` 并且现有的集合不是固定的，那么  `createCollection()` 会抛出一个错误。通常来说，生产环境下 `autoCreate` 应该为 `false`。
 
 ```javascript
 const schema = new Schema({..}, { autoCreate: true, capped: 1024 });
 const Clock = mongoose.model('Clock', schema);
-// Mongoose will create the capped collection for you.
+// Mongoose 会为你创建固定集合
 ```
 
-Unlike `autoIndex`, `autoCreate` is `false` by default. You can change this default by setting `mongoose.set('autoCreate', true);`
+和 `autoIndex` 不一样的是, `autoCreate` 默认为 `false`。你可以通过设置 `mongoose.set('autoCreate', true);` 来修改它。
 
 
 ##### bufferCommands
@@ -477,22 +477,22 @@ const schema = new Schema({..}, { bufferCommands: false });
 
 ##### bufferTimeoutMS
 
-If bufferCommands is on, this option sets the maximum amount of time Mongoose buffering will wait before throwing an error. If not specified, Mongoose will use 10000 (10 seconds).
+如果开启了 `bufferCommands` ，该选项设置 Mongoose 缓存在抛出错误之前等待的最大时间。如果没有指定，Mongoose 会使用 10000 (10 秒)。
 
 ```javascript
-// If an operation is buffered for more than 1 second, throw an error.
+// 如果一个操作缓存超过 1 秒，将会抛出错误
 const schema = new Schema({..}, { bufferTimeoutMS: 1000 });
 ```
 
 ##### capped
 
-Mongoose 支持**固定集合，**要设置一个集合为固定集合，添加 capped 选项并设置其大小，单位为 bytes
+Mongoose 支持**固定集合**，要设置一个集合为固定集合，添加 capped 选项并设置其大小，单位为 bytes
 
 ```javascript
 new Schema({..}, { capped: 1024 });
 ```
 
-The `capped` option may also be set to an object if you want to pass additional options like [max](http://www.mongodb.org/display/DOCS/Capped+Collections#CappedCollections-max) or [autoIndexId](https://docs.mongodb.com/manual/core/capped-collections/#CappedCollections-autoIndexId). In this case you must explicitly pass the `size` option, which is required.
+`capped` 选项可以设置成对象，如果你想传递额外的选项如 [max](http://www.mongodb.org/display/DOCS/Capped+Collections#CappedCollections-max) 或 [autoIndexId](https://docs.mongodb.com/manual/core/capped-collections/#CappedCollections-autoIndexId)。这种情况下，你必须显式传递必需的 `size` 选项。
 
 ```javascript
 new Schema({..}, { capped: { size: 1024, max: 1000, autoIndexId: true } });
@@ -500,11 +500,69 @@ new Schema({..}, { capped: { size: 1024, max: 1000, autoIndexId: true } });
 
 ##### collection
 
+默认情况下，Mongoose 通过将 model 名传递给 [utils.toCollectionName](https://mongoosejs.com/docs/api.html#utils_exports.toCollectionName) 方法来生成一个集合名称，该方法会将名称改为复数形式。如果你需要一个不同的名称，请设置该选项。
+
+```javascript
+const dataSchema = new Schema({..}, { collection: 'data' });
+```
+
 ##### discriminatorKey
+
+当你定义一个 [鉴别器](#鉴别器) 时， Mongoose 会添加一个字段到 schema，用来存储文档实例是哪个鉴别器。默认情况下，Mongoose 会添加一个 `__t` 属性，但是你可以设置 `discriminatorKey` 来覆盖默认值。
+
+```javascript
+const baseSchema = new Schema({}, { discriminatorKey: 'type' });
+const BaseModel = mongoose.model('Test', baseSchema);
+
+const personSchema = new Schema({ name: String });
+const PersonModel = BaseModel.discriminator('Person', personSchema);
+
+const doc = new PersonModel({ name: 'James T. Kirk' });
+// 没有 `discriminatorKey` 的话， Mongoose 会将鉴别器存储在 `__t` 属性上，而不是 `type`
+doc.type; // 'Person'
+```
 
 ##### id
 
+Mongoose assigns each of your schemas an `id` virtual getter by default which returns the document's `_id` field cast to a string, or in the case of ObjectIds, its hexString. If you don't want an `id` getter added to your schema, you may disable it by passing this option at schema construction time.
+
+```javascript
+// default behavior
+const schema = new Schema({ name: String });
+const Page = mongoose.model('Page', schema);
+const p = new Page({ name: 'mongodb.org' });
+console.log(p.id); // '50341373e894ad16347efe01'
+
+// disabled id
+const schema = new Schema({ name: String }, { id: false });
+const Page = mongoose.model('Page', schema);
+const p = new Page({ name: 'mongodb.org' });
+console.log(p.id); // undefined
+```
+
 ##### \_id
+
+Mongoose assigns each of your schemas an `_id` field by default if one is not passed into the [Schema](https://mongoosejs.com/docs/api.html#schema-js) constructor. The type assigned is an [ObjectId](https://mongoosejs.com/docs/api.html#schema_Schema.Types) to coincide with MongoDB's default behavior. If you don't want an `_id` added to your schema at all, you may disable it using this option.
+
+You can only use this option on subdocuments. Mongoose can't save a document without knowing its id, so you will get an error if you try to save a document without an `_id`.
+
+```javascript
+// default behavior
+const schema = new Schema({ name: String });
+const Page = mongoose.model('Page', schema);
+const p = new Page({ name: 'mongodb.org' });
+console.log(p); // { _id: '50341373e894ad16347efe01', name: 'mongodb.org' }
+
+// disabled _id
+const childSchema = new Schema({ name: String }, { _id: false });
+const parentSchema = new Schema({ children: [childSchema] });
+
+const Model = mongoose.model('Model', parentSchema);
+
+Model.create({ children: [{ name: 'Luke' }] }, (error, doc) => {
+  // doc.children[0]._id will be undefined
+});
+```
 
 ##### minimize
 
@@ -2618,7 +2676,7 @@ const story = await Story.findOne({ 'author.name': 'Ian Fleming' }).populate('au
 story; // null
 ```
 
-如果你想根据 author 的 name 属性去过滤 stories，你应该使用 [denormalization](https://www.mongodb.com/blog/post/6-rules-of-thumb-for-mongodb-schema-design-part-3)。
+如果你想根据 author 的 name 属性去过滤 stories，你应该使用 [denormalization](https://www.mongodb.com/blog/post/6-rules-of-thumb-for-mongodb-schema-design-part-3)。  
 _注：这里的意思是尽量使用嵌套数据结构，而不是使用关联表。_
 
 #### limit vs perDocumentLimit
@@ -2643,7 +2701,7 @@ const stories = Story.find().populate({
 stories[0].name; // 'Casino Royale'
 stories[0].fans.length; // 2
 
-// 第二个 story 有0个粉丝
+// 第二个 story 有 0 个粉丝
 stories[1].name; // 'Live and Let Die'
 stories[1].fans.length; // 0
 ```
@@ -2722,7 +2780,7 @@ person.populated('fans'); // ObjectIds 数组
 
 #### 填充多个现成的文档
 
-如果我们有一个或多个 mongoose 文档或者一个纯对象（_像 _[_mapReduce_](https://mongoosejs.com/docs/api.html#model_Model.mapReduce)_ 输出那样_），我们可以使用 [Model.populate()](https://mongoosejs.com/docs/api.html#model_Model.populate) 方法填充它们。这也是 `Document#populate()` 和 `Query#populate()` 填充文档使用的方法。
+如果我们有一个或多个 mongoose 文档或者一个纯对象（像 _[_mapReduce_](https://mongoosejs.com/docs/api.html#model_Model.mapReduce) 输出那样_），我们可以使用 [Model.populate()](https://mongoosejs.com/docs/api.html#model_Model.populate) 方法填充它们。这也是 `Document#populate()` 和 `Query#populate()` 填充文档使用的方法。
 
 #### 多级填充
 
@@ -3074,15 +3132,239 @@ MySchema.post('save', function (doc, next) {
 });
 ```
 
-### Discriminators
+### 鉴别器
+
+#### `model.discriminator()` 函数
+
+Discriminators are a schema inheritance mechanism. They enable you to have multiple models with overlapping schemas on top of the same underlying MongoDB collection.
+
+Suppose you wanted to track different types of events in a single collection. Every event will have a timestamp, but events that represent clicked links should have a URL. You can achieve this using the `model.discriminator()` function. This function takes 3 parameters, a model name, a discriminator schema and an optional key (defaults to the model name). It returns a model whose schema is the union of the base schema and the discriminator schema.
+
+```javascript
+const options = { discriminatorKey: 'kind' };
+
+const eventSchema = new mongoose.Schema({ time: Date }, options);
+const Event = mongoose.model('Event', eventSchema);
+
+// ClickedLinkEvent is a special type of Event that has
+// a URL.
+const ClickedLinkEvent = Event.discriminator('ClickedLink',
+  new mongoose.Schema({ url: String }, options));
+
+// When you create a generic event, it can't have a URL field...
+const genericEvent = new Event({ time: Date.now(), url: 'google.com' });
+assert.ok(!genericEvent.url);
+
+// But a ClickedLinkEvent can
+const clickedEvent = new ClickedLinkEvent({ time: Date.now(), url: 'google.com' });
+assert.ok(clickedEvent.url);
+```
+
+#### Discriminators save to the Event model's collection
+
+Suppose you created another discriminator to track events where a new user registered. These `SignedUpEvent` instances will be stored in the same collection as generic events and `ClickedLinkEvent` instances.
+
+```javascript
+const event1 = new Event({ time: Date.now() });
+const event2 = new ClickedLinkEvent({ time: Date.now(), url: 'google.com' });
+const event3 = new SignedUpEvent({ time: Date.now(), user: 'testuser' });
+
+
+await Promise.all([event1.save(), event2.save(), event3.save()]);
+const count = await Event.countDocuments();
+assert.equal(count, 3);
+```
+
+#### Discriminator keys
+
+The way mongoose tells the difference between the different discriminator models is by the 'discriminator key', which is `__t` by default. Mongoose adds a String path called `__t` to your schemas that it uses to track which discriminator this document is an instance of.
+
+```javascript
+const event1 = new Event({ time: Date.now() });
+const event2 = new ClickedLinkEvent({ time: Date.now(), url: 'google.com' });
+const event3 = new SignedUpEvent({ time: Date.now(), user: 'testuser' });
+
+assert.ok(!event1.__t);
+assert.equal(event2.__t, 'ClickedLink');
+assert.equal(event3.__t, 'SignedUp');
+```
 
 ### 插件
+
+Schemas 是支持插件的，也就是说，它们允许注册预先打包好的的功能来扩展它们的能力，这是一个非常强大的功能。
+
+- [示例](#示例)
+- [全局插件](#全局插件)
+- [在编译模型之前注册插件](#)
+- [官方支持插件](#官方支持插件)
+- [社区](#社区)
+
+#### 示例
+
+Plugins are a tool for reusing logic in multiple schemas. Suppose you have several models in your database and want to add a `loadedAt` property to each one. Just create a plugin once and apply it to each `Schema`:
+
+```javascript
+// loadedAt.js
+module.exports = function loadedAtPlugin(schema, options) {
+  schema.virtual('loadedAt').
+    get(function() { return this._loadedAt; }).
+    set(function(v) { this._loadedAt = v; });
+
+  schema.post(['find', 'findOne'], function(docs) {
+    if (!Array.isArray(docs)) {
+      docs = [docs];
+    }
+    const now = new Date();
+    for (const doc of docs) {
+      doc.loadedAt = now;
+    }
+  });
+};
+
+// game-schema.js
+const loadedAtPlugin = require('./loadedAt');
+const gameSchema = new Schema({ ... });
+gameSchema.plugin(loadedAtPlugin);
+
+// player-schema.js
+const loadedAtPlugin = require('./loadedAt');
+const playerSchema = new Schema({ ... });
+playerSchema.plugin(loadedAtPlugin);
+```
+
+We just added last-modified behavior to both our `Game` and `Player` schemas and declared an index on the `lastMod` path of our Games to boot. Not bad for a few lines of code.
+
+#### 全局插件
+
+Want to register a plugin for all schemas? The mongoose singleton has a `.plugin()` function that registers a plugin for every schema. For example:
+
+```javascript
+const mongoose = require('mongoose');
+mongoose.plugin(require('./loadedAt'));
+
+const gameSchema = new Schema({ ... });
+const playerSchema = new Schema({ ... });
+// `loadedAtPlugin` gets attached to both schemas
+const Game = mongoose.model('Game', gameSchema);
+const Player = mongoose.model('Player', playerSchema);
+```
+
+#### 在编译模型之前注册插件
+
+Because many plugins rely on [middleware](#中间件), you should make sure to apply plugins before you call `mongoose.model()` or `conn.model()`. Otherwise, [any middleware the plugin registers won't get applied](#在编译-models-之前定义中间件).
+
+#### 官方支持插件
+
+The Mongoose team maintains several plugins that add cool new features to Mongoose. Here's a couple:
+
+- [mongoose-autopopulate](https://plugins.mongoosejs.io/plugins/autopopulate): Always `populate()` certain fields in your Mongoose schemas.
+- [mongoose-lean-virtuals](http://plugins.mongoosejs.io/plugins/lean-virtuals): Attach virtuals to the results of Mongoose queries when using `.lean()`.
+- [mongoose-cast-aggregation](https://www.npmjs.com/package/mongoose-cast-aggregation)
+
+You can find a full list of officially supported plugins on [Mongoose's plugins search site](https://plugins.mongoosejs.io/).
+
+
+#### 社区
+
+Not only can you re-use schema functionality in your own projects, but you also reap the benefits of the Mongoose community as well. Any plugin published to [npm](https://www.npmjs.com/) and with 'mongoose' as an [npm keyword](https://docs.npmjs.com/cli/v8/configuring-npm/package-json/) will show up on our [search results page](https://plugins.mongoosejs.io/).
+
 
 ### Transactions
 
 ### TypeScript
 
+Mongoose introduced [officially supported TypeScript bindings in v5.11.0](https://thecodebarbarian.com/working-with-mongoose-in-typescript.html). Mongoose's index.d.ts file supports a wide variety of syntaxes and strives to be compatible with @types/mongoose where possible. This guide describes Mongoose's recommended approach to working with Mongoose in TypeScript.
+
+#### Creating Your First Document
+
+To get started with Mongoose in TypeScript, you need to:
+
+1.Create an interface representing a document in MongoDB.  
+2.Create a [Schema](#schemas) corresponding to the document interface.  
+3.Create a Model.  
+4.[Connect to MongoDB](#connections).  
+
+```javascript
+import { Schema, model, connect } from 'mongoose';
+
+// 1. Create an interface representing a document in MongoDB.
+interface User {
+  name: string;
+  email: string;
+  avatar?: string;
+}
+
+// 2. Create a Schema corresponding to the document interface.
+const schema = new Schema<User>({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  avatar: String
+});
+
+// 3. Create a Model.
+const UserModel = model<User>('User', schema);
+
+run().catch(err => console.log(err));
+
+async function run(): Promise<void> {
+  // 4. Connect to MongoDB
+  await connect('mongodb://localhost:27017/test');
+
+  const doc = new UserModel({
+    name: 'Bill',
+    email: 'bill@initech.com',
+    avatar: 'https://i.imgur.com/dM7Thhn.png'
+  });
+  await doc.save();
+
+  console.log(doc.email); // 'bill@initech.com'
+}
+```
+
+You as the developer are responsible for ensuring that your document interface lines up with your Mongoose schema. For example, Mongoose won't report an error if `email` is `required` in your Mongoose schema but optional in your document interface.
+
+The `UserModel()` constructor returns an instance of `HydratedDocument<User>`. `User` is a document interface, it represents the raw object structure that `User` objects look like in MongoDB. `HydratedDocument<User>` represents a hydrated Mongoose document, with methods, virtuals, and other Mongoose-specific features.
+
+```javascript
+import { HydratedDocument } from 'mongoose';
+
+const doc: HydratedDocument<User> = new UserModel({
+  name: 'Bill',
+  email: 'bill@initech.com',
+  avatar: 'https://i.imgur.com/dM7Thhn.png'
+});
+```
+
+#### Using `extends Document`
+
+Alternatively, your document interface can extend Mongoose's `Document` class. Many Mongoose TypeScript codebases use the below approach.
+
+```javascript
+import { Document, Schema, model, connect } from 'mongoose';
+
+interface User extends Document {
+  name: string;
+  email: string;
+  avatar?: string;
+}
+```
+
+This approach works, but we recommend your document interface not extend `Document`. Using `extends Document` makes it difficult for Mongoose to infer which properties are present on [query filters](#queries), [lean documents](#lean-option), and other cases.
+
+We recommend your document interface contain the properties defined in your schema and line up with what your documents look like in MongoDB. Although you can add [instance methods](#实例方法) to your document interface, we do not recommend doing so.
+
+#### Using Custom Bindings
+
+If Mongoose's built-in `index.d.ts` file does not work for you, you can remove it in a postinstall script in your `package.json` as shown below. However, before you do, please [open an issue on Mongoose's GitHub](https://github.com/Automattic/mongoose/issues/new) page and describe the issue you're experiencing.
+
+```javascript
+{
+  "postinstall": "rm ./node_modules/mongoose/index.d.ts"
+}
+```
+
 ## API
+
 ### Mongoose
 
 ### Schema
@@ -3143,9 +3425,9 @@ TODO
 
 ### 常用操作符
 
-|  操  作  符            | 描   述  |
-|  ----------  | ----  |
-| $eq         | 等于 |
+|  操  作  符   | 描  述  
+|  ----------  | ----   |
+| [$eq](#eq)   | 等于 |
 | $or         | 或关系 |
 | $nor         | 或关系 |
 | $gt         | 大于 |
@@ -3167,5 +3449,19 @@ TODO
 | $box	| 范围查询，矩形范围（基于LBS）
 | $center	| 范围醒询，圆形范围（基于LBS）
 | $centerSphere	| 范围查询，球形范围（基于LBS）
-| $slice	| 查询字段集合中的元素（比如从第几个之后，第N到第M个元素）
+| [$slice](#slice)	| 查询字段集合中的元素（比如从第几个之后，第N到第M个元素），或查询第一个或最后一个元素
+
+##### $eq
+
+##### $slice
+```javascript
+Model.find({}, { arr: { $slice: -1 } } // 截取 arr 字段里最后一个元素
+Model.find({}).slice('arr', -1) // 同上
+
+// 截取第1～10个元素，第一个数字为开始，第二个数字位个数，和 js 中的 slice 不同
+Model.find({}).slice('arr', [0, 10]) 
+Model.find({}).slice('arr', [1, 10]) // 截取第2～11个元素 
+```
+
+
 
