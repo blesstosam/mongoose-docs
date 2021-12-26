@@ -96,6 +96,52 @@ await Kitten.find({ name: /^fluff/ });
 
 ## 指南
 
+Mongoose guides provide detailed tutorials on Mongoose's core concepts and integrating Mongoose with external tools and frameworks.
+
+Mongoose Core Concepts
+
+- [Schemas](#schemas)
+- [SchemaTypes](#schematypes)
+- [Connections](#连接)
+- [Models](#models)
+- [Documents](#documents)
+- [Subdocuments](#subdocuments)
+- [Queries](#queries)
+- [Validation](#validation)
+- [Middleware](#中间件)
+- [Populate](#populate)
+- [Discriminators](#鉴别器)
+- [Plugins](#插件)
+- [Faster Mongoose Queries With Lean](https://mongoosejs.com/docs/tutorials/lean.html)
+- [Query Casting](https://mongoosejs.com/docs/tutorials/query_casting.html)
+- [findOneAndUpdate](https://mongoosejs.com/docs/tutorials/findoneandupdate.html)
+- [Getters and Setters](https://mongoosejs.com/docs/tutorials/getters-setters.html)
+- [Virtuals](https://mongoosejs.com/docs/tutorials/virtuals.html)
+
+Advanced Topics
+
+- [Working with Dates](https://mongoosejs.com/docs/tutorials/dates.html)
+- [Custom Casting For Built-in Types](https://mongoosejs.com/docs/tutorials/custom-casting.html)
+- [Custom SchemaTypes](https://mongoosejs.com/docs/customschematypes.html)
+
+Integrations
+
+- [Promises](https://mongoosejs.com/docs/promises.html)
+- [AWS Lambda](https://mongoosejs.com/docs/lambda.html)
+- [Browser Library](https://mongoosejs.com/docs/browser.html)
+- [GeoJSON](https://mongoosejs.com/docs/geojson.html)
+- [Transactions](https://mongoosejs.com/docs/transactions.html)
+- [MongoDB Driver Deprecation Warnings](https://mongoosejs.com/docs/deprecations.html)
+- [Testing with Jest](https://mongoosejs.com/docs/jest.html)
+- [SSL Connections](https://mongoosejs.com/docs/tutorials/ssl.html)
+
+
+Migration Guides
+
+- [Mongoose 5.x to 6.x](https://mongoosejs.com/docs/migrating_to_6.html)
+- [Mongoose 4.x to 5.x](https://mongoosejs.com/docs/migrating_to_5.html)
+- [Mongoose 3.x to 4.x](https://mongoosejs.com/docs/migration.html)
+
 ### Schemas
 
 
@@ -111,7 +157,7 @@ await Kitten.find({ name: /^fluff/ });
 - [虚拟字段](#虚拟字段)
 - [别名](#别名)
 - [选项](#选项)
-- [使用 ES6 Classes](#arrays)
+- [使用 ES6 类](#使用-es6-类)
 - [插件化](#插件化)
 - [延伸阅读](#延伸阅读)
 
@@ -416,16 +462,17 @@ const parentSchema = new Schema({
 - [minimize](#minimize)
 - [read](#read)
 - [writeConcern](#writeconcern)
-- [shardKey](#shardKey)
+- [shardKey](#shardkey)
 - [strict](#strict)
 - [strictQuery](#strictquery)
 - [toJSON](#tojson)
 - [toObject](#toobject)
-- [typeKey](#typeKey)
+- [typeKey](#typekey)
 - [validateBeforeSave](#validatebeforesave)
-- [versionKey](#versionKey)
+- [versionKey](#versionkey)
 - [optimisticConcurrency](#optimisticconcurrency)
 - [collation](#collation)
+- [timeseries](#timeseries)
 - [skipVersioning](#skipversioning)
 - [timestamps](#timestamps)
 - [useNestedStrict](#usenestedstrict)
@@ -457,7 +504,6 @@ const Clock = mongoose.model('Clock', schema);
 ```
 
 和 `autoIndex` 不一样的是, `autoCreate` 默认为 `false`。你可以通过设置 `mongoose.set('autoCreate', true);` 来修改它。
-
 
 ##### bufferCommands
 
@@ -524,16 +570,16 @@ doc.type; // 'Person'
 
 ##### id
 
-Mongoose assigns each of your schemas an `id` virtual getter by default which returns the document's `_id` field cast to a string, or in the case of ObjectIds, its hexString. If you don't want an `id` getter added to your schema, you may disable it by passing this option at schema construction time.
+Mongoose 默认为每个 schemas 分配一个 `id` 虚拟 getter，它返回转化为字符串的 `_id` 字段，或者返回其 hexString，如果是 ObjectIds 的情况下。如果你不想在 schema 上添加 `id` getter，你可以在初始化 schema 的时候传递选项来禁用这个功能。
 
 ```javascript
-// default behavior
+// 默认行为
 const schema = new Schema({ name: String });
 const Page = mongoose.model('Page', schema);
 const p = new Page({ name: 'mongodb.org' });
 console.log(p.id); // '50341373e894ad16347efe01'
 
-// disabled id
+// 禁用 id
 const schema = new Schema({ name: String }, { id: false });
 const Page = mongoose.model('Page', schema);
 const p = new Page({ name: 'mongodb.org' });
@@ -542,47 +588,290 @@ console.log(p.id); // undefined
 
 ##### \_id
 
-Mongoose assigns each of your schemas an `_id` field by default if one is not passed into the [Schema](https://mongoosejs.com/docs/api.html#schema-js) constructor. The type assigned is an [ObjectId](https://mongoosejs.com/docs/api.html#schema_Schema.Types) to coincide with MongoDB's default behavior. If you don't want an `_id` added to your schema at all, you may disable it using this option.
+如果没有选项传递给 [Schema 构造函数](https://mongoosejs.com/docs/api.html#schema-js)，mongoose 默认为每个 schemas 分配一个 `_id` 字段，分配的类型是一个 [ObjectId](https://mongoosejs.com/docs/api.html#schema_Schema.Types)，以符合 MongoDB 的默认行为。如果你不想在 schema 上添加 `_id` 字段，你可以使用这个选项来禁用。
 
-You can only use this option on subdocuments. Mongoose can't save a document without knowing its id, so you will get an error if you try to save a document without an `_id`.
+你只能在子文档里使用这个选项。Mongoose 不能在不知道文档 id 的情况下保存文档，所以没有 `_id` 的文档在保存时你会得到一个报错。
 
 ```javascript
-// default behavior
+// 默认 behavior
 const schema = new Schema({ name: String });
 const Page = mongoose.model('Page', schema);
 const p = new Page({ name: 'mongodb.org' });
 console.log(p); // { _id: '50341373e894ad16347efe01', name: 'mongodb.org' }
 
-// disabled _id
+// 禁用 _id
 const childSchema = new Schema({ name: String }, { _id: false });
 const parentSchema = new Schema({ children: [childSchema] });
 
 const Model = mongoose.model('Model', parentSchema);
 
 Model.create({ children: [{ name: 'Luke' }] }, (error, doc) => {
-  // doc.children[0]._id will be undefined
+  // doc.children[0]._id 将会是 undefined
 });
 ```
 
 ##### minimize
 
+默认情况下，mongoose 会移除空对象来 "最小化" schemas。
+
+```javascript
+const schema = new Schema({ name: String, inventory: {} });
+const Character = mongoose.model('Character', schema);
+
+// 如果不是空对象，将会存储 `inventory` 字段
+const frodo = new Character({ name: 'Frodo', inventory: { ringOfPower: 1 }});
+await frodo.save();
+let doc = await Character.findOne({ name: 'Frodo' }).lean();
+doc.inventory; // { ringOfPower: 1 }
+
+// 如果是空对象，将不会存储 `inventory` 字段
+const sam = new Character({ name: 'Sam', inventory: {}});
+await sam.save();
+doc = await Character.findOne({ name: 'Sam' }).lean();
+doc.inventory; // undefined
+```
+该行为可以通过设置 `minimize` 选项为 `false` 来重写，然后它就可以存储空对象了。
+
+```javascript
+const schema = new Schema({ name: String, inventory: {} }, { minimize: false });
+const Character = mongoose.model('Character', schema);
+
+// 当是空对象时，将会存储 `inventory`
+const sam = new Character({ name: 'Sam', inventory: {} });
+await sam.save();
+doc = await Character.findOne({ name: 'Sam' }).lean();
+doc.inventory; // {}
+```
+要检测一个对象是否是空对象，你可以使用 `$isEmpty()` 帮助方法；
+
+```javascript
+const sam = new Character({ name: 'Sam', inventory: {} });
+sam.$isEmpty('inventory'); // true
+
+sam.inventory.barrowBlade = 1;
+sam.$isEmpty('inventory'); // false
+```
 ##### read
+
+允许在 schema 级别上设置 [query#read](https://mongoosejs.com/docs/api.html#query_Query-read) 选项，为我们提供了一种将默认的 [ReadPreferences](http://docs.mongodb.org/manual/applications/replication/#replica-set-read-preference) 应用于所有 model 上派生查询的方法。
+
+```javascript
+const schema = new Schema({..}, { read: 'primary' });            // also aliased as 'p'
+const schema = new Schema({..}, { read: 'primaryPreferred' });   // aliased as 'pp'
+const schema = new Schema({..}, { read: 'secondary' });          // aliased as 's'
+const schema = new Schema({..}, { read: 'secondaryPreferred' }); // aliased as 'sp'
+const schema = new Schema({..}, { read: 'nearest' });            // aliased as 'n'
+```
+
+每个 pref 的别名也是允许的，因此为了不必键入 'secondaryPreferred' 而得到拼写错误，我们可以简单地传递 'sp'。
+
+read 选项也允许我们指定 _tag sets_，它会告诉 [驱动](https://github.com/mongodb/node-mongodb-native/) 要读副本集的哪个成员。在 [这里](http://docs.mongodb.org/manual/applications/replication/#tag-sets) 和 [这里](http://mongodb.github.com/node-mongodb-native/driver-articles/anintroductionto1_1and2_2.html#read-preferences) 获取 tag sets 的更多信息。
+
+_注意：你还可以在连接数据库时指定驱动读 pref 的 [策略](https://mongodb.github.com/node-mongodb-native/api-generated/replset.html?highlight=strategy) 选项：_
+
+```javascript
+//定期 ping 副本集成员以跟踪网络延迟
+const options = { replset: { strategy: 'ping' }};
+mongoose.connect(uri, options);
+
+const schema = new Schema({..}, { read: ['nearest', { disk: 'ssd' }] });
+mongoose.model('JellyBean', schema);
+```
 
 ##### writeConcern
 
+允许在 schema 级别上设置 [write concern](https://docs.mongodb.com/manual/reference/write-concern/)。
+
+```javascript
+const schema = new Schema({ name: String }, {
+  writeConcern: {
+    w: 'majority',
+    j: true,
+    wtimeout: 1000
+  }
+});
+```
+
 ##### shardKey
+
+`shardKey` 选项用于 [分片 MongoDB 架构](http://docs.mongodb.org/manual/core/sharding)。每个分片集合都会分配一个必须存在于所有插入/更新操作中的分片键（shard key）。我们只需要将这个 schema 选项设置为相同的分片键（shard key），就可以全部设置好了。
+
+```javascript
+new Schema({ .. }, { shardKey: { tag: 1, name: 1 }})
+```
+
+注意 mongoose 不会为你发送 `shardcollection` 命令。你必须自己配置你的分片。
 
 ##### strict
 
+`strict` 选项，(默认启用)，可以确保传递给 model 构造函数的值中没有在 schema 中指定的部分不会保存到数据库里。
+
+```javascript
+const thingSchema = new Schema({..})
+const Thing = mongoose.model('Thing', thingSchema);
+const thing = new Thing({ iAmNotInTheSchema: true });
+thing.save(); // iAmNotInTheSchema 不会保存到数据库
+
+// 设置为 false..
+const thingSchema = new Schema({..}, { strict: false });
+const thing = new Thing({ iAmNotInTheSchema: true });
+thing.save(); // iAmNotInTheSchema 现在保存到数据库了！！
+```
+
+该选项同样会影响使用 `doc.set()` 来设置一个属性。
+
+```javascript
+const thingSchema = new Schema({..})
+const Thing = mongoose.model('Thing', thingSchema);
+const thing = new Thing;
+thing.set('iAmNotInTheSchema', true);
+thing.save(); // iAmNotInTheSchema 不会保存到数据库
+```
+
+该值可以通过在模型实例上传递第二个布尔参数被覆盖：
+
+```javascript
+const Thing = mongoose.model('Thing');
+const thing = new Thing(doc, true);  // 启用 strict 模式
+const thing = new Thing(doc, false); // 禁用 strict 模式
+```
+
+`strict` 选项也可以设置为 `"throw"`，这将导致产生错误，而不是删除坏数据。
+
+_注意：无论是什么样的 schema 选项，在实例上设置的任何不存在于模式中的 key/val 都会被忽略。_
+
+```javascript
+const thingSchema = new Schema({..})
+const Thing = mongoose.model('Thing', thingSchema);
+const thing = new Thing;
+thing.iAmNotInTheSchema = true;
+thing.save(); // iAmNotInTheSchema 不会保存到数据库
+```
+
 ##### strictQuery
+
+Mongoose 支持一个单独的 `strictQuery` 选项来避免查询过滤器使用严格模式。这是因为空的查询过滤器会导致 mongoose 返回模型中的所有文档，这可能会导致问题。
+
+```javascript
+const mySchema = new Schema({ field: Number }, { strict: true });
+const MyModel = mongoose.model('Test', mySchema);
+//  因为 `strict: true`，mongoose 会过滤掉 `notInSchema: 1`，意味着该查询会返回 'tests' 集合中的所有文档
+MyModel.find({ notInSchema: 1 });
+```
+
+`strict` 选项会对更新操作有影响，而 `strictQuery` 选项只针对查询过滤器。
+
+```javascript
+// 如果 `strict` 不为 `false`，mongoose 将从更新操作中删除掉 `notInSchema`
+MyModel.updateMany({}, { $set: { notInSchema: 1 } });
+```
+
+Mongoose 有一个单独的 `strictQuery` 选项来切换查询的 `filter` 参数是否使用严格模式。
+
+```javascript
+const mySchema = new Schema({ field: Number }, {
+  strict: true,
+  strictQuery: false // 关闭查询过滤器的严格模式
+});
+const MyModel = mongoose.model('Test', mySchema);
+// 因为 `strictQuery` 为 false，mongoose 将删除 `notInSchema: 1` 
+MyModel.find({ notInSchema: 1 });
+```
+
+通常来说，我们不建议将用户定义的对象作为查询过滤器传递:
+
+```javascript
+// 不要这么做
+const docs = await MyModel.find(req.query);
+
+// 这样做：
+const docs = await MyModel.find({ name: req.query.name, age: req.query.age }).setOptions({ sanitizeFilter: true });
+```
+
+在 Mongoose 6 中，`strictQuery` 默认等同于 `strict`。 但是，你可以全局的修改该行为：
+
+```javascript
+// 设置 `strictQuery` 为 `false`，这样 Mongoose 默认不会删除不在 schema 中的查询过滤器属性
+// 这样做 **不会** 影响 `strict`
+mongoose.set('strictQuery', false);
+```
 
 ##### toJSON
 
+和 [toObject](#toobject) 选项完全一样但是仅仅在 [`toJSON` 方法](https://thecodebarbarian.com/what-is-the-tojson-function-in-javascript.html) 被调用的时候才起作用。
+
+```javascript
+const schema = new Schema({ name: String });
+schema.path('name').get(function (v) {
+  return v + ' is my name';
+});
+schema.set('toJSON', { getters: true, virtuals: false });
+const M = mongoose.model('Person', schema);
+const m = new M({ name: 'Max Headroom' });
+console.log(m.toObject()); // { _id: 504e0cd7dd992d9be2f20b6f, name: 'Max Headroom' }
+console.log(m.toJSON()); // { _id: 504e0cd7dd992d9be2f20b6f, name: 'Max Headroom is my name' }
+// 因为我们知道当一个对象被 stringified 的时候 toJSON 会被调用
+console.log(JSON.stringify(m)); // { "_id": "504e0cd7dd992d9be2f20b6f", "name": "Max Headroom is my name" }
+```
+
+要查看所有的 `toJSON/toObject` 选项，请读 [这个](https://mongoosejs.com/docs/api.html#document_Document-toObject)。
+
 ##### toObject
+
+Documents 有一个 [toObject](https://mongoosejs.com/docs/api.html#document_Document-toObject) 方法，它将 mongoose 文档转换成一个普通的 JavaScript 对象。 该方法接收一些选项， 为了避免在每个文档基础（basis）上应用这些选项，我们可以在 schema 级别声明这些选项，并在默认情况下将它们应用于 schema 的所有文档。
+
+要让所有的虚拟字段在 `console.log` 中输出，请设置 `toObject` 选项为 `{ getters: true }`：
+
+```javascript
+const schema = new Schema({ name: String });
+schema.path('name').get(function(v) {
+  return v + ' is my name';
+});
+schema.set('toObject', { getters: true });
+const M = mongoose.model('Person', schema);
+const m = new M({ name: 'Max Headroom' });
+console.log(m); // { _id: 504e0cd7dd992d9be2f20b6f, name: 'Max Headroom is my name' }
+```
+
+要查看所有的 `toObject` 选项，请读 [这个](https://mongoosejs.com/docs/api.html#document_Document-toObject).
 
 ##### typeKey
 
+默认情况下，如果你的 schema 中有一个对象的属性有 'type'，mongoose 会将其理解为类型声明。
+
+```javascript
+// Mongoose 理解为 'loc 是一个字符串'
+const schema = new Schema({ loc: { type: String, coordinates: [Number] } });
+```
+
+但是，对于像 [geoJSON](http://docs.mongodb.org/manual/reference/geojson/) 这样的应用程序，'type' 属性很重要。如果你想控制 mongoose 使用哪个键来查找类型声明，请设置 'typeKey' schema 选项。
+
+```javascript
+const schema = new Schema({
+  // Mongoose 理解为 'loc 是一个对象，有两个键， type 和 coordinates'
+  loc: { type: String, coordinates: [Number] },
+  // Mongoose 理解为 'name 是一个字符串'
+  name: { $type: String }
+}, { typeKey: '$type' }); // '$type' 键表示该对象为类型声明
+```
+
 ##### validateBeforeSave
+
+默认情况下，文档会在保存到数据库之前自动被校验。这是为了防止保存非法的文档，如果你想手动处理校验，并且能够保存未通过校验的对象，你可以将 `validatebeforeave` 设置为 false。
+
+```javascript
+const schema = new Schema({ name: String });
+schema.set('validateBeforeSave', false);
+schema.path('name').validate(function (value) {
+  return value != null;
+});
+const M = mongoose.model('Person', schema);
+const m = new M({ name: null });
+m.validate(function(err) {
+  console.log(err); // 会告诉你 null 是不允许的
+});
+m.save(); // 尽管非法，也会成功
+```
 
 ##### versionKey
 
@@ -626,7 +915,7 @@ const thing = new Thing({ name: 'no versioning please' });
 thing.save(); // { name: 'no versioning please' }
 ```
 
-Mongoose 只会在你调用 `save()` 时更新这个 version key 的值。如果你使用 `update()`, `findOneAndUpdate`, etc，Mongoose 不会更新该值。针对此有一种解决方法，你可以使用下面的中间件。
+Mongoose 只会在你调用 `save()` 时更新这个 version key 的值。如果你使用 `update()`, `findOneAndUpdate` 等，mongoose 不会更新该值。针对此有一种解决方法，你可以使用下面的中间件。
 
 ```javascript
 schema.pre('findOneAndUpdate', function () {
@@ -650,27 +939,263 @@ schema.pre('findOneAndUpdate', function () {
 
 ##### optimisticConcurrency
 
+[Optimistic concurrency](https://en.wikipedia.org/wiki/Optimistic_concurrency_control) 是一种策略，可以确保在使用`find()` 或 `findOne()` 加载文档和使用 `save()` 更新文档之间，你正在更新的文档不会发生变化。
+
+例如，假设你有一个 `House` model，其中包含一个 `photos` 列表和一个 `status`，该 `status` 表示这个房子是否在搜索中出现。假设至少有两张 `photos` 的房子才有 `'APPROVED'` 的状态 。您可能如下所示地实现批准 house document 的逻辑：
+
+```javascript
+async function markApproved(id) {
+  const house = await House.findOne({ _id });
+  if (house.photos.length < 2) {
+    throw new Error('House must have at least two photos!');
+  }
+  
+  house.status = 'APPROVED';
+  await house.save();
+}
+```
+
+`markApproved()` 函数看起来是独立的，但可能有一个潜在的问题：如果另一个函数在 `findOne()` 调用和 `save()` 调用之间删除了房子的照片呢？例如，下面的代码将会成功：
+
+```javascript
+const house = await House.findOne({ _id });
+if (house.photos.length < 2) {
+  throw new Error('House must have at least two photos!');
+}
+
+const house2 = await House.findOne({ _id });
+house2.photos = [];
+await house2.save();
+
+// 将 house 标记为 'APPROVED' 即使它没有照片了
+house.status = 'APPROVED';
+await house.save();
+```
+
+如果你在 `House` model 的 schema 里设置了 `optimisticConcurrency` 选项，上面的脚本会抛错
+
+```javascript
+const House = mongoose.model('House', Schema({
+  status: String,
+  photos: [String]
+}, { optimisticConcurrency: true }));
+
+const house = await House.findOne({ _id });
+if (house.photos.length < 2) {
+  throw new Error('House must have at least two photos!');
+}
+
+const house2 = await House.findOne({ _id });
+house2.photos = [];
+await house2.save();
+
+// 抛出 'VersionError: No matching document found for id "..." version 0'
+house.status = 'APPROVED';
+await house.save();
+```
+
 ##### collation
+
+为每次 query 和 aggregation 设置一个默认的 [排序](https://docs.mongodb.com/manual/reference/collation/)。[下面是对初学者友好的排序概述](http://thecodebarbarian.com/a-nodejs-perspective-on-mongodb-34-collations)。
+
+```javascript
+const schema = new Schema({
+  name: String
+}, { collation: { locale: 'en_US', strength: 1 } });
+
+const MyModel = db.model('MyModel', schema);
+
+MyModel.create([{ name: 'val' }, { name: 'Val' }]).
+  then(() => {
+    return MyModel.find({ name: 'val' });
+  }).
+  then((docs) => {
+    // `docs` 会返回2个文档，因为 `strength: 1` 表示 MongoDB 匹配时将忽略大小写
+  });
+```
+
+#####  timeseries
+
+如果你在 schema 上设置 `timeseries` 选项，Mongoose 会从该 schema 创建的任何模型创建一个 [timeseries 集合](https://docs.mongodb.com/manual/core/timeseries-collections/)。
+
+```javascript
+const schema = Schema({ name: String, timestamp: Date, metadata: Object }, {
+  timeseries: {
+    timeField: 'timestamp',
+    metaField: 'metadata',
+    granularity: 'hours'
+  },
+  autoCreate: false,
+  expireAfterSeconds: 86400
+});
+
+// `Test` 集合会是一个 timeseries 集合
+const Test = db.model('Test', schema);
+```
 
 ##### skipVersioning
 
+`skipVersioning` 允许从版本控制中排除属性(即，即使这些属性被更新，内部版本也不会增加)。除非你知道自己在做什么，否则**不要**这样做。对于子文档，使用完全限定路径将其包含在父文档中（include this on the parent document using the fully qualified path）。
+
+
+```javascript
+new Schema({..}, { skipVersioning: { dontVersionMe: true } });
+thing.dontVersionMe.push('hey');
+thing.save(); // version 不会增加
+```
+
 ##### timestamps
+
+`timestamps` 选项会告诉 mongoose 分配 `createdAt` 和 `updatedAt` 字段给你的 schema，分配的类型为 [Date](https://mongoosejs.com/docs/api.html#schema-date-js)。
+
+默认情况下，字段名为 `createdAt` 和 `updatedAt`。可以通过设置 `timestamps.createdAt` 和 `timestamps.updatedAt` 来定制字段名称。
+
+```javascript
+const thingSchema = new Schema({..}, { timestamps: { createdAt: 'created_at' } });
+const Thing = mongoose.model('Thing', thingSchema);
+const thing = new Thing();
+await thing.save(); // `created_at` & `updatedAt` 将被包括在内
+
+// 更新操作下，Mongoose 会将 `updatedAt` 添加到 `$set`
+await Thing.updateOne({}, { $set: { name: 'Test' } });
+
+// 如果你设置了 upsert: true, Mongoose 也会将 `created_at` 添加到 `$setOnInsert`
+await Thing.findOneAndUpdate({}, { $set: { name: 'Test2' } });
+
+// Mongoose 也会在 bulkWrite() 操作中添加时间戳
+// 查看 https://mongoosejs.com/docs/api.html#model_Model.bulkWrite
+await Thing.bulkWrite([
+  insertOne: {
+    document: {
+      name: 'Jean-Luc Picard',
+      ship: 'USS Stargazer'
+      // Mongoose 会添加`created_at` 和 `updatedAt`
+    }
+  },
+  updateOne: {
+    filter: { name: 'Jean-Luc Picard' },
+    update: {
+      $set: {
+        ship: 'USS Enterprise'
+        // Mongoose 会添加 `updatedAt`
+      }
+    }
+  }
+]);
+```
+
+默认情况下，Mongoose 使用 `new Date()` 来获取当前时间。如果你想覆盖 Mongoose 用来获取当前时间的函数，你可以设置 `timestamps.currentTime` 选项，Mongoose 会调用 `timestamps.currentTime` 函数，当它需要获取当前时间时。
+
+```javascript
+const schema = Schema({
+  createdAt: Number,
+  updatedAt: Number,
+  name: String
+}, {
+  // 使 Mongoose 使用 Unix 事件 (seconds since Jan 1, 1970)
+  timestamps: { currentTime: () => Math.floor(Date.now() / 1000) }
+});
+```
 
 ##### useNestedStrict
 
+像 `update()`，`updateOne()`，`updateMany()`，和 `findOneAndUpdate()` 这样的写操作只检查顶级 schema 的 strict 模式设置。
+
+```javascript
+const childSchema = new Schema({}, { strict: false });
+const parentSchema = new Schema({ child: childSchema }, { strict: 'throw' });
+const Parent = mongoose.model('Parent', parentSchema);
+Parent.update({}, { 'child.name': 'Luke Skywalker' }, (error) => {
+  // 抛错，因为 `parentSchema` 设置了 `strict: throw`，即使 `childSchema` 设置了 `strict: false`
+});
+
+const update = { 'child.name': 'Luke Skywalker' };
+const opts = { strict: false };
+Parent.update({}, update, opts, function(error) {
+  // 能正常工作，因为传递 `strict: false` 给 `update()` 重写了父 schema
+});
+```
+
+如果你设置 `useNestedStrict` 为 true，mongoose 将使用子 schema 的 `strict` 选项来强制执行更新。
+
+```javascript
+const childSchema = new Schema({}, { strict: false });
+const parentSchema = new Schema({ child: childSchema },
+  { strict: 'throw', useNestedStrict: true });
+const Parent = mongoose.model('Parent', parentSchema);
+Parent.update({}, { 'child.name': 'Luke Skywalker' }, error => {
+  // 正常工作
+});
+```
+
 ##### selectPopulatedPaths
+
+默认情况下，Mongoose 会自动为你 `select()` 任何填充的字段，除非你明确地排除它们。
+
+```javascript
+const bookSchema = new Schema({
+  title: 'String',
+  author: { type: 'ObjectId', ref: 'Person' }
+});
+const Book = mongoose.model('Book', bookSchema);
+
+// 默认情况下，Mongoose 会将 `author` 添加到 `select()`.
+await Book.find().select('title').populate('author');
+
+// 换句话说，下面的查询和上面等同
+await Book.find().select('title author').populate('author');
+```
+
+要默认不选择填充字段，请在你的 schema 中将 `selectPopulatedPaths` 设置为 `false`。
+
+```javascript
+const bookSchema = new Schema({
+  title: 'String',
+  author: { type: 'ObjectId', ref: 'Person' }
+}, { selectPopulatedPaths: false });
+const Book = mongoose.model('Book', bookSchema);
+
+// 因为 `selectPopulatedPaths` 为 false，下面的文档将 **不会** 包含任何 `author` 属性
+const doc = await Book.findOne().select('title').populate('author');
+```
 
 ##### storeSubdocValidationError
 
-#### 使用 ES6 Classes
+因为遗留的原因，当单个嵌套 schema 的子路径中存在校验错误时，Mongoose 会记录单个嵌套 schema 路径中也存在验证错误。例如:
 
-Schemas have a `loadClass()` [method](https://mongoosejs.com/docs/api/schema.html#schema_Schema-loadClass) that you can use to create a Mongoose schema from an [ES6 class](https://thecodebarbarian.com/an-overview-of-es6-classes):
+```javascript
+const childSchema = new Schema({ name: { type: String, required: true } });
+const parentSchema = new Schema({ child: childSchema });
 
-- [ES6 class methods](https://masteringjs.io/tutorials/fundamentals/class#methods) become [Mongoose methods](#实例方法)
-- [ES6 class statics](https://masteringjs.io/tutorials/fundamentals/class#statics) become [Mongoose statics](#静态方法)
-- [ES6 getters and setters](https://masteringjs.io/tutorials/fundamentals/class#getterssetters) become [Mongoose virtuals](#virtuals)
+const Parent = mongoose.model('Parent', parentSchema);
 
-Here's an example of using `loadClass()` to create a schema from an ES6 class:
+// 将同时包含 'child.name' 和 'child' 的错误
+new Parent({ child: {} }).validateSync().errors;
+```
+
+在子 schema 中将 `storeSubdocValidationError` 设置为 `false`，可以让 Mongoose 只报告父 schema 的错误。 
+
+```javascript
+const childSchema = new Schema({
+  name: { type: String, required: true }
+}, { storeSubdocValidationError: false }); // <-- 在子 schema 中设置
+const parentSchema = new Schema({ child: childSchema });
+
+const Parent = mongoose.model('Parent', parentSchema);
+
+// 将只包含 'child.name' 的错误
+new Parent({ child: {} }).validateSync().errors;
+```
+
+#### 使用 ES6 类
+
+Schemas 有一个 [`loadClass()` 方法](https://mongoosejs.com/docs/api/schema.html#schema_Schema-loadClass)，你可以用它从 [ES6 类](https://thecodebarbarian.com/an-overview-of-es6-classes) 来创建一个 Mongoose schema：
+
+- [ES6 类方法](https://masteringjs.io/tutorials/fundamentals/class#methods) 变成 [Mongoose 实例方法](#实例方法)
+- [ES6 类静态方法](https://masteringjs.io/tutorials/fundamentals/class#statics) 变成 [Mongoose 静态方法](#静态方法)
+- [ES6 getters 和 setters](https://masteringjs.io/tutorials/fundamentals/class#getterssetters) 变成 [Mongoose 虚拟字段](#virtuals)
+
+这里有一个使用 `loadClass()` 从ES6 类来创建 schema 的例子：
 
 ```javascript
 class MyClass {
@@ -689,15 +1214,15 @@ console.log(schema.virtuals); // { myVirtual: VirtualType { ... } }
 
 #### 插件化
 
-Schemas are also [pluggable](https://mongoosejs.com/docs/plugins.html) which allows us to package up reusable features into plugins that can be shared with the community or just between your projects.
+Schemas 也支持 [插件化](https://mongoosejs.com/docs/plugins.html) 来让我们将可重用的功能打包到插件中，这些插件可以在社区里分享或者仅仅在你的项目里共用。
 
 #### 延伸阅读
 
-Here's an [alternative introduction to Mongoose schemas](https://masteringjs.io/tutorials/mongoose/schema).
+这里是 [另一个对 Mongoose schemas 的介绍](https://masteringjs.io/tutorials/mongoose/schema)。
 
-To get the most out of MongoDB, you need to learn the basics of MongoDB schema design. SQL schema design (third normal form) was designed to [minimize storage costs](https://en.wikipedia.org/wiki/Third_normal_form), whereas MongoDB schema design is about making common queries as fast as possible. [The 6 Rules of Thumb for MongoDB Schema Design blog series](https://www.mongodb.com/blog/post/6-rules-of-thumb-for-mongodb-schema-design-part-1) is an excellent resource for learning the basic rules for making your queries fast.
+为了充分利用 MongoDB，你需要学习 MongoDB schema 设计的基础知识。SQL schema 设计(第三种标准形式)旨在最小化存储成本，而MongoDB 模式设计旨在使常见查询能尽可能地快。[MongoDB 模式设计的 6 条经验法则博客系列](https://www.mongodb.com/blog/post/6-rules-of-thumb-for-mongodb-schema-design-part-1) 是一个使你的查询变快的基本规则的优秀学习资源。
 
-Users looking to master MongoDB schema design in Node.js should look into [The Little MongoDB Schema Design Book](http://bit.ly/mongodb-schema-design) by Christian Kvalheim, the original author of the [MongoDB Node.js driver](http://npmjs.com/package/mongodb). This book shows you how to implement performant schemas for a laundry list of use cases, including e-commerce, wikis, and appointment bookings.
+想要在 Node.js 中掌握 MongoDB schema 设计的用户应该看看 Christian Kvalheim 的 [The Little MongoDB Schema Design Book](http://bit.ly/mongodb-schema-design)，他也是  [MongoDB Node.js driver](http://npmjs.com/package/mongodb) 的最初作者。这本书向您展示了如何为一系列用例实现高性能的 schemas，包括电子商务、wiki 和预约。
 
 ### SchemaTypes
 
@@ -1107,7 +1632,8 @@ console.log(new M({ b: 'nay' }).b); // false
 
 ##### Arrays
 
-Mongoose 支持[SchemaTypes](https://mongoosejs.com/docs/api.html#schema_Schema.Types) 数组和 [子文档](https://mongoosejs.com/docs/subdocs.html) 数组。SchemaTypes 数组也被称作_原始数组_，子文档数组也被称作_文档数组_。
+Mongoose 支持 [SchemaTypes](https://mongoosejs.com/docs/api.html#schema_Schema.Types) 数组和 [子文档](https://mongoosejs.com/docs/subdocs.html) 数组。SchemaTypes 数组也被称作原始数组，子文档数组也被称作文档数组。
+
 
 ```javascript
 const ToySchema = new Schema({ name: String });
@@ -1329,7 +1855,7 @@ console.log(sampleSchema.path('name'));
 - [Mongoose SchemaTypes 的介绍](https://masteringjs.io/tutorials/mongoose/schematype)
 - [Mongoose Schema Types](https://kb.objectrocket.com/mongo-db/mongoose-schema-types-1418)
 
-### Connections
+### 连接
 
 你可以使用 `mongoose.connect()` 连接到 MongoDB。
 
@@ -3361,106 +3887,6 @@ If Mongoose's built-in `index.d.ts` file does not work for you, you can remove i
 {
   "postinstall": "rm ./node_modules/mongoose/index.d.ts"
 }
-```
-
-## API
-
-### Mongoose
-
-### Schema
-
-### Connection
-
-### Document
-
-### Model
-
-#### Model()
-
-参数：
-
-- doc <Object> 初始值
-- optional <[fileds]> object containing the fields that were selected in the query which returned this document. You do **not** need to set this parameter to ensure Mongoose handles your [query projection](https://mongoosejs.com/docs/api/api.html#query_Query-select).
-- [skipId=false] boolean 默认为 false，如果为 true，mongoose 不会添加 \_id 到文档
-
-Model 是你和 MongoDB 交互的主要工具类。Model 的实例被称作 document。
-在 Mongoose 的世界里，"Model" 这个词指代的是 `mongoose.Model` 类的子类。你不应该直接使用 `mongoose.Model` 类。如下所示，`mongoose.model` 和 `connection.model` 函数会创建 `mongoose.Model` 类的子类。
-例子：
-
-```javascript
-// `UserModel` is a "Model", a subclass of `mongoose.Model`.
-const UserModel = mongoose.model('User', new Schema({ name: String }));
-
-// You can use a Model to create new documents using `new`:
-const userDoc = new UserModel({ name: 'Foo' });
-await userDoc.save();
-
-// You also use a model to create queries:
-const userFromDb = await UserModel.findOne({ name: 'Foo' });
-```
-
-#### Model.aggregate()
-
-#### Model.buildBulkWriteOperations()
-
-#### Model.bulkSave()
-
-参数：
-
-- documents <Document>
-
-接受一组文档，获取更改并根据文档是否是新文档或是否有更改将文档插入/更新到数据库中。
-例子：
-TODO
-
-#### Model.bulkWrite()
-
-参数：
-
-- documents <Document>
-
-### Query
-
-## 快速查阅
-
-### 常用操作符
-
-|  操  作  符   | 描  述  
-|  ----------  | ----   |
-| [$eq](#eq)   | 等于 |
-| $or         | 或关系 |
-| $nor         | 或关系 |
-| $gt         | 大于 |
-| $gte         | 大于等于 |
-| $lt         | 小于 |
-| $lte         | 小于等于 |
-| $ne         | 不等于 |
-| $in         | 在多个值范围内 |
-| $nin         | 不在多个值范围内 |
-| $all         | 匹配数组中多个值 |
-| $regex         | 正则，用于模糊匹配 |
-| $size         | 匹配数组大小 |
-| $maxDistance	| 范围查询，距离（基于LBS）
-| $mod	| 取模运算
-| $near	| 邻域查询，查询附近的位置（基于LBS）
-| $exists	| 字段是否存在
-| $elemMatch	| 匹配内数组内的元素
-| $within	| 范围查询（基于LBS）
-| $box	| 范围查询，矩形范围（基于LBS）
-| $center	| 范围醒询，圆形范围（基于LBS）
-| $centerSphere	| 范围查询，球形范围（基于LBS）
-| [$slice](#slice)	| 查询字段集合中的元素（比如从第几个之后，第N到第M个元素），或查询第一个或最后一个元素
-
-##### $eq
-
-##### $slice
-```javascript
-Model.find({}, { arr: { $slice: -1 } } // 截取 arr 字段里最后一个元素
-Model.find({}).slice('arr', -1) // 同上
-
-// 截取第1～10个元素，第一个数字为开始，第二个数字位个数，和 js 中的 slice 不同
-Model.find({}).slice('arr', [0, 10]) 
-Model.find({}).slice('arr', [1, 10]) // 截取第2～11个元素 
 ```
 
 
