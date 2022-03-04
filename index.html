@@ -8,7 +8,7 @@
   <meta name="description" content="Mongoose 中文文档">
   <title>Mongoose 中文文档 - V6.x</title>
   <link rel="icon" type="image/png" sizes="192x192" href="imgs/android-icon-192x192.png">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@egoist/docup@2/dist/docup.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@egoist/docup@2/dist/docup.min.css" />
   <style>
     :root {
       --navbar-bg: #8d2222;
@@ -43,6 +43,12 @@
     body:before {
       content: attr(message);
     }
+    .navbar {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      flex-direction: column;
+      height: 6rem;
+    }
   </style>
 </head>
 
@@ -50,7 +56,7 @@
   loading...
   <!-- Start app -->
   <script type="module">
-    import * as docup from 'https://cdn.jsdelivr.net/npm/@egoist/docup@2.1.1/dist/docup.min.js'
+    import * as docup from 'https://unpkg.com/@egoist/docup@2.1.1/dist/docup.min.js'
 
     docup.init({
       useSystemTheme: false,
@@ -73,6 +79,17 @@
       // REMOVE THIS - just showing the redirect route in the UI
       document.body.setAttribute('message', 'This page was loaded directly from the index.html file');
     }
+
+    const div = document.createElement('div')
+    div.innerHTML = `
+      <div>Support Russia 🇷🇺</div>
+      <div>Since React support Ukraine publicly, we say we support Russia!</div>
+    `
+    div.style.background = `#661212`
+    div.style.textAlign = `center`
+    div.style.width = '100%'
+
+    document.body.firstChild.firstChild.insertBefore(div,  document.body.firstChild.firstChild.firstChild)
   </script>
 </body>
 
